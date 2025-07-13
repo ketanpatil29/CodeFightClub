@@ -1,12 +1,58 @@
-# React + Vite
+# ⚔️ CodeFightClub (CFC)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Welcome to **CodeFightClub** — a coding battle arena where you fight with code 💻🧠  
+Pick a category → get matched with someone → solve the same coding question → fastest correct wins.  
+It's not just practice — it's WAR 🔥
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🧠 What is CFC?
 
-## Expanding the ESLint configuration
+CFC is an online competitive coding platform (just for fun or for serious grind):
+- Click `Enter Arena` to start a match
+- Choose your category (DSA, Problem Solving, Logic, Algorithms)
+- Get matched with another player
+- You both get the **same coding question**
+- Whoever solves it correctly **first**, wins 💪
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🛠️ Tech Stack
+
+Frontend:
+- ReactJS + TailwindCSS
+- Socket.IO (real-time matchmaking)
+- Vite (super fast)
+
+Backend:
+- Node.js + Express
+- Socket.IO server for real-time opponent matching
+
+---
+
+## ✨ Features (so far)
+
+- ⚡ Live matchmaking system  
+- 🧠 Coding category selection  
+- 💬 Real-time question delivery  
+- 👥 Opponent vs Opponent battle logic  
+- 🔐 (Coming Soon) User authentication  
+- 🏆 (Coming Soon) Live leaderboard  
+- 🎯 (Coming Soon) Easy, Medium, Hard level sorting
+
+---
+
+## 🚀 How to Run Locally
+
+```bash
+# Clone the repo
+git clone https://github.com/your-username/CodeFightClub.git
+
+# Go into the folder
+cd CodeFightClub
+
+# Install dependencies
+npm install
+
+# Start the dev server
+npm run dev
