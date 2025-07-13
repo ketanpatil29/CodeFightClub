@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+
+:root {
+  --space-grotesk: 'Space Grotesk', sans-serif;
+}
+
+body {
+    background-image: url("./assets/background1.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    height: 100vh;
+    margin: 0;
+  }
+  
