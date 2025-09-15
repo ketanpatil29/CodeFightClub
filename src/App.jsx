@@ -1,27 +1,37 @@
-// src/App.jsx
+import { useState } from 'react';
 import './App.css';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import HeaderTop from './components/HeaderTop';
 import HeaderNav from './components/HeaderNav';
 import Dashboard from './components/Dashboard';
+import CategoryModal from './components/CategoryModal';
 import Arena from './components/Arena'; // You need to create this
 
 function App() {
+
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+
+  const openCategoryModal = () => {
+    setCategoryModalOpen(true);
+  };
+
+  const closeCategoryModal = () => {
+    setCategoryModalOpen(false);
+  };
+
   return (
     <Router>
       <div className="[font-family:'Space_Grotesk',sans-serif]">
         <HeaderTop />
-        <HeaderNav />
-        <div className="w-[1400px] h-[1px] bg-gray-400 opacity-50 rounded mx-auto mt-6"></div>
+        
+        <Dashboard onEnterArena={openCategoryModal}/>
 
-        {/* Routes go here */}
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/arena/:roomId" element={<Arena />} />
-        </Routes>
-
-        <div className="w-[1400px] h-[1px] bg-gray-400 opacity-50 rounded mx-auto mt-6"></div>
+        <CategoryModal 
+          isOpen={categoryModalOpen}
+          onClose={closeCategoryModal}
+        />
       </div>
     </Router>
   );

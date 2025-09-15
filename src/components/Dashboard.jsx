@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-const Dashboard = () => {
+const Dashboard = ({ onEnterArena }) => {
   return (
     <section className="min-h-screen bg flex justify-center items-center relative bg-gradient-to-br from-gray-50 to-white pt-20">
       <div className="max-w-6xl mx-auto px-4">
@@ -14,7 +14,7 @@ const Dashboard = () => {
 
           <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto mb-10">Test your coding skills in real-time battles against developers worldwide</p>
           
-          <button className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:translate-y-[-2px] px-8 py-3">
+          <button onClick={onEnterArena} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:translate-y-[-2px] px-8 py-3">
             <i className="fas fa-gamepad mr-2"></i>
             ENTER ARENA
           </button>
