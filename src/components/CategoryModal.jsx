@@ -57,6 +57,22 @@ const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, select
             </button>
           ))}
         </div>
+
+        {selectedCategory && 
+          (
+            <div className="text-center">
+              <h2 className="text-xl font-semibold mb-4">SELECTED CATEGORY: {" "}
+                <span className="text-purple-600">
+                  {selectedCategory}
+                </span>
+               </h2>
+            </div>
+          )
+        }
+
+        <div className="text-center">
+          <button onClick={onStartMatch} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition-all duration-300 w-full px-8 py-4">FIND MATCH</button>
+        </div>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 const Dashboard = ({ onEnterArena }) => {
   return (
-    <section className="min-h-screen bg flex justify-center items-center relative bg-gradient-to-br from-gray-50 to-white pt-20">
+    <section className="min-h-screen bg flex justify-center items-center relative bg-gradient-to-br from-gray-100 to-white pt-20">
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-16">
           <h1 className="font-sans font-bold text-5xl md:text-7xl mb-6">

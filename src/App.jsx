@@ -12,6 +12,7 @@ import Arena from './components/Arena'; // You need to create this
 function App() {
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   const openCategoryModal = () => {
     setCategoryModalOpen(true);
@@ -20,6 +21,10 @@ function App() {
   const closeCategoryModal = () => {
     setCategoryModalOpen(false);
   };
+
+  const startMatch = () => {
+    setSelectedCategory(true);
+  }
 
   return (
     <Router>
@@ -31,6 +36,9 @@ function App() {
         <CategoryModal 
           isOpen={categoryModalOpen}
           onClose={closeCategoryModal}
+          selectedCategory={selectedCategory}
+          onStartMatch={handleStartMatch}
+          onSelectCategory={setSelectedCategory}
         />
       </div>
     </Router>
