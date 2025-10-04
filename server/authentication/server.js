@@ -1,14 +1,31 @@
+// server/authentication/server.js
 const express = require("express");
 const mongoose = require("mongoose");
-const dotenv = require("dotenv");
+const cors = require("cors");
+require("dotenv").config();
 
-dotenv.config();
+// Import auth routes
+const authRoutes = require("./routes/auth");
+
 const app = express();
-
 app.use(express.json());
 
-mongoose.connect("mongodb://ketan:ketanvsmongodb@127.0.0.1:27017/codeFightClub?authSource=admin")
-    .then(() => console.log("Database connected"))
-    .catch(err => console.log(err));
+// Enable CORS for frontend
+app.use(cors({
+  origin: "http://localhost:5174", // your React frontend
+  credentials: true
+}));
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+// Auth routes
+app.use("/auth", authRoutes);
+
+// Connect to MongoDB
+mongoose.connect(`mongodb://ketan:ketanvsmongodb@127.0.0.1:27017/codeFightClub?authSource=admin`)
+  .then(() => console.log("MongoDB Connected"))
+  .catch(err => console.log("MongoDB connection error:", err));
+
+// Start server
+const PORT = 5000;
+app.listen(PORT, () => {
+  console.log(`Auth server running on http://localhost:${PORT}`);
+});

@@ -37,10 +37,10 @@ router.post("/send-otp", async (req, res) => {
 
     try {
         await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: "Your OTP code",
-            text: `Your OTP is ${otp}`,
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: "Your OTP code",
+          text: `Your OTP is ${otp}`, // correct
         });
 
         res.json({ message: "OTP sent successfully"})
@@ -67,7 +67,6 @@ router.post("/verify-otp", async (req, res) => {
   res.json({ message: "Password set successfully" });
 });
 
-// 3. Login
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
