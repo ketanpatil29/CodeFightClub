@@ -37,7 +37,7 @@ function App() {
           isOpen={categoryModalOpen}
           onClose={closeCategoryModal}
           selectedCategory={selectedCategory}
-          onStartMatch={handleStartMatch}
+          onStartMatch={startMatch}
           onSelectCategory={setSelectedCategory}
         />
       </div>
