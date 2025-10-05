@@ -1,8 +1,26 @@
 
 import React from 'react';
+import { useSocket } from '../context/MatchContext';
 
 const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, selectedCategory }) => {
+  const socket = useSocket();
+
   if (!isOpen) return null;
+
+  const handleFindMatch = () => {
+    if (!selectedCategory) return alert("Please select a category!");
+
+    const user = {
+      _id: localStorage.getItem("userId"),
+      userName: localStorage.getItem("userName"),
+      email: localStorage.getItem("userEmail")
+    };
+
+    console.log("Sending user to backend:", user);
+    socket.emit("joinCategory", { category: selectedCategory, user }); // <-- FIXED
+    onStartMatch();
+  };
+
 
   const categories = [
     { 
@@ -71,7 +89,7 @@ const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, select
         }
 
         <div className="text-center">
-          <button onClick={onStartMatch} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition-all duration-300 w-full px-8 py-4">FIND MATCH</button>
+          <button onClick={handleFindMatch} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-md hover:scale-105 hover:shadow-lg transition-all duration-300 w-full px-8 py-4">FIND MATCH</button>
         </div>
       </div>
     </div>

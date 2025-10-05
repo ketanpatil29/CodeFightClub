@@ -42,6 +42,13 @@ const Login = ({ onClose, setToken }) => {
         email,
         password
       });
+
+      const user = res.data.user;
+
+      localStorage.setItem("userId", user._id);
+      localStorage.setItem("userName", user.userName || user.email);
+      localStorage.setItem("userEmail", user.email);
+
       localStorage.setItem("token", res.data.token);
       setToken(res.data.token);
       setMessage("Login successful!");
