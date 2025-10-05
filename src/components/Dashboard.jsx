@@ -20,7 +20,6 @@ const Dashboard = ({ onEnterArena }) => {
           </button>
         </div>
         
-        
       </div>
     </section>
   )
