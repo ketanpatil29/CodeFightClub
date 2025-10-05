@@ -12,42 +12,40 @@ const transporter = nodemailer.createTransport({
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    }
-})
+    },
+    logger: true,
+    debug: true
+});
 
 router.post("/send-otp", async (req, res) => {
+  try {
     const { email } = req.body;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    console.log("Generated OTP:", otp);
 
-    if( !email || !emailRegex.test(email) ){
-        return res.status(400).json({ message: "Invalid email format"});
-    } 
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP Code",
+      text: `Your OTP is ${otp}`,
+    };
 
-    let user = await User.findOne({ email });
-    if ( !user )
-    {
-        user = new User({ email });
-    }
-    user.otp = otp;
-    user.otpExpiry = new Date(Date.now() + 10 * 60000);
+    await transporter.sendMail(mailOptions);
+    console.log("OTP email sent to", email);
 
-    await user.save();
-
-    try {
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: "Your OTP code",
-          text: `Your OTP is ${otp}`, // correct
-        });
-
-        res.json({ message: "OTP sent successfully"})
-    } catch (error) {
-        console.error("Email send error:", error);
-        res.status(500).json({ message: "Failed to send OTP. Please check your email address."});
-    }
+    res.status(200).json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("💀 Error in /send-otp route:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 router.post("/verify-otp", async (req, res) => {
@@ -76,7 +74,15 @@ router.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-  res.json({ message: "Login successful", token });
+  res.json({ 
+    message: "Login successful",
+    token, 
+    user: {
+      _id: user._id,
+      userName: user.userName,
+      email: user.email
+    }
+  });
 });
 
 module.exports = router;
