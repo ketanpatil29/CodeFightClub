@@ -6,20 +6,34 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HeaderTop from './components/HeaderTop';
 import HeaderNav from './components/HeaderNav';
 import Dashboard from './components/Dashboard';
+import Login from './components/Login';
 import CategoryModal from './components/CategoryModal';
 import Arena from './components/Arena'; // You need to create this
 
 function App() {
 
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
+  const [loginOpen, setLoginOpen] = useState(false);
+
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("");
 
   const openCategoryModal = () => {
     setCategoryModalOpen(true);
   };
 
+  const openLoginModal = () => 
+  {
+    setShowLogin(true);
+  }
+
+  const closeLoginModal = () => {
+    setOpenLoginModal(false);
+  }
+
   const closeCategoryModal = () => {
-    setCategoryModalOpen(false);
+    setShowLogin(false);
   };
 
   const startMatch = () => {
@@ -29,9 +43,9 @@ function App() {
   return (
     <Router>
       <div className="[font-family:'Space_Grotesk',sans-serif]">
-        <HeaderTop />
+        <HeaderTop token={token} setLoginOpen={setShowLogin} setToken={setToken}/>
         
-        <Dashboard onEnterArena={openCategoryModal}/>
+        <Dashboard onEnterArena={openCategoryModal} />
 
         <CategoryModal 
           isOpen={categoryModalOpen}
@@ -41,6 +55,8 @@ function App() {
           onSelectCategory={setSelectedCategory}
         />
       </div>
+
+      {showLogin && <Login onClose={() => setShowLogin(false)} setToken={setToken} />}
     </Router>
   );
 }
