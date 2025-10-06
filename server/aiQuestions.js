@@ -1,19 +1,17 @@
 // server/aiQuestions.js
-const express = require("express");
+import express from "express";
+import axios from "axios";
+import 'dotenv/config';
+
 const router = express.Router();
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Initialize Google Gemini client
-const genAI = new GoogleGenerativeAI("AIzaSyBvu-5VLjr7mdpJMkxNdQkZ-Nr3oF2z9CQ");
+// ✅ Hugging Face API key from .env
+const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
 
-// Helper to safely parse AI JSON responses
+// Helper function to parse JSON safely
 function safeParseJSON(text) {
   try {
-    // Remove newlines and extra spaces that break JSON
-    const cleaned = text
-      .replace(/\r?\n/g, "\\n") // replace line breaks inside strings
-      .replace(/\\n\\n/g, "\\n"); // collapse double line breaks
-    return JSON.parse(cleaned);
+    return JSON.parse(text);
   } catch (err) {
     console.error("❌ Failed to parse AI JSON:", text, err);
     return null;
@@ -24,12 +22,16 @@ function safeParseJSON(text) {
 router.post("/generate-question", async (req, res) => {
   const { category, difficulty } = req.body;
 
-  if (!category) return res.status(400).json({ message: "Category is required" });
+  if (!category) {
+    return res.status(400).json({ message: "Category is required" });
+  }
 
   try {
     const prompt = `
-      Generate a unique coding problem in ${category} with ${difficulty || "medium"} difficulty.
-      Respond strictly as **valid JSON only**, with no Markdown, no code blocks, and no unescaped newlines.
+      Generate a unique coding problem in ${category} with ${
+      difficulty || "medium"
+    } difficulty.
+      Respond strictly as valid JSON only, with no Markdown, no code blocks.
       Example JSON format:
       {
         "title": "Problem Title",
@@ -40,26 +42,31 @@ router.post("/generate-question", async (req, res) => {
       }
     `;
 
-    // Use the Gemini 2.5 Flash model
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // ✅ Hugging Face Inference API request
+    const response = await axios.post(
+      "https://api-inference.huggingface.co/models/google/flan-t5-small", // free model
+      { inputs: prompt },
+      {
+        headers: {
+          Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    // Generate the question
-    const result = await model.generateContent(prompt);
+    const text = response.data[0]?.generated_text || response.data?.generated_text || "";
 
-    // Get text from AI response
-    const text = result.response.text();
-
-    // Safely parse JSON
     const question = safeParseJSON(text);
+
     if (!question) {
-      return res.status(500).json({ message: "Failed to generate valid question" });
+      return res.status(500).json({ message: "Failed to parse AI JSON" });
     }
 
     res.json({ question });
   } catch (err) {
-    console.error("❌ Gemini API error:", err);
+    console.error("❌ Hugging Face API error:", err.response?.data || err.message);
     res.status(500).json({ message: "AI generation failed" });
   }
 });
 
-module.exports = router;
+export default router;

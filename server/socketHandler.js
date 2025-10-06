@@ -1,4 +1,4 @@
-const { Server } = require("socket.io");
+import { Server } from "socket.io";
 
 // In-memory queue: { category: [ { socket, userId, userName, email } ] }
 const waitingUsers = {};
@@ -83,4 +83,5 @@ function initSocket(server) {
   return io;
 }
 
-module.exports = initSocket;
+export default initSocket;
+

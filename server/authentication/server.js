@@ -1,11 +1,9 @@
 // server/authentication/server.js
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-require("dotenv").config();
-
-// Import auth routes
-const authRoutes = require("./routes/auth");
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import 'dotenv/config';
+import authRoutes from "./routes/auth.js"; // ✅ fixed path
 
 const app = express();
 app.use(express.json());
@@ -21,11 +19,11 @@ app.use("/auth", authRoutes);
 
 // Connect to MongoDB
 mongoose.connect(`mongodb://ketan:ketanvsmongodb@127.0.0.1:27017/codeFightClub?authSource=admin`)
-  .then(() => console.log("MongoDB Connected"))
-  .catch(err => console.log("MongoDB connection error:", err));
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch(err => console.error("❌ MongoDB connection error:", err));
 
 // Start server
 const PORT = 5000;
 app.listen(PORT, () => {
-  console.log(`Auth server running on http://localhost:${PORT}`);
+  console.log(`🚀 Auth server running on http://localhost:${PORT}`);
 });

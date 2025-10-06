@@ -1,12 +1,11 @@
-// server/index.js
-require('dotenv').config();
+import 'dotenv/config';
+import express from "express";
+import http from "http";
+import cors from "cors";
+import * as connectDB from "./authentication/server.js";  // ✅ note the *
+import * as initSocket from "./socketHandler.js";          // ✅ note the *
 
-const express = require("express");
-const http = require("http");
-const cors = require("cors");
-const connectDB = require("./authentication/server"); 
-const initSocket = require("./socketHandler");
-const aiQuestionsRouter = require("./aiQuestions.js");
+import aiQuestionsRouter from "./aiQuestions.js";
 
 const app = express();
 app.use(cors());
@@ -14,8 +13,9 @@ app.use(express.json());
 
 app.use("/ai", aiQuestionsRouter);
 
-// create HTTP + Socket server
 const server = http.createServer(app);
-initSocket(server);
+initSocket.default(server); // ✅ call its default export if it exists
 
-server.listen(3000, () => console.log("🚀 Server with WebSocket running on http://localhost:3000"));
+server.listen(3000, () =>
+  console.log("🚀 Server with WebSocket running on http://localhost:3000")
+);
