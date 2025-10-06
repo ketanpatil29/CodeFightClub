@@ -1,4 +1,3 @@
-// server/authentication/routes/auth.js
 import 'dotenv/config';
 
 import express from "express";
