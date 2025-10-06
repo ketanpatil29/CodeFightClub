@@ -1,111 +1,107 @@
 import React, { useState, useEffect } from "react";
+import Editor from "@monaco-editor/react";
 import { useSocket } from "../context/MatchContext";
-import axios from "axios";
 
-const Arena = ({ roomId, user, opponentName, category, onExit }) => {
+
+
+const Arena = ({ user, opponentName, question, onExit }) => {
   const socket = useSocket();
-  const [question, setQuestion] = useState(null);
-  const [answer, setAnswer] = useState("");
-  const [status, setStatus] = useState("waiting"); // waiting, submitted
+  const [code, setCode] = useState(""); // Only function body
+  const [status, setStatus] = useState("waiting");
   const [opponentStatus, setOpponentStatus] = useState("waiting");
-  const [loadingQuestion, setLoadingQuestion] = useState(true);
-  const [error, setError] = useState("");
 
-  // Fetch AI-generated question on load
+  // Predefined function template
+  const funcTemplate = `function solve(...args) {
+  // Write your code here
+}`;
+
   useEffect(() => {
-    const fetchQuestion = async () => {
-      try {
-        setLoadingQuestion(true);
-        const res = await axios.post("http://localhost:3000/ai/generate-question", {
-          category,
-          difficulty: "medium",
-        });
-        setQuestion(res.data.question);
-        setLoadingQuestion(false);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load question. Try again.");
-        setLoadingQuestion(false);
-      }
-    };
-
-    fetchQuestion();
-  }, [category]);
-
-  // Listen for opponent submissions
-  useEffect(() => {
-    if (!socket || !roomId) return;
-
-    const handleOpponentSubmit = (data) => {
-      console.log("Opponent submitted:", data);
-      setOpponentStatus("submitted");
-    };
-
-    socket.on("opponentSubmit", handleOpponentSubmit);
-
-    return () => {
-      socket.off("opponentSubmit", handleOpponentSubmit);
-    };
-  }, [socket, roomId]);
+    setCode(funcTemplate);
+  }, []);
 
   const submitAnswer = () => {
-    if (!answer.trim()) return;
+    let allPassed = true;
 
-    socket.emit("submitAnswer", { roomId, userId: user._id, answer });
+    try {
+      // Evaluate the user code + automatically defined function `solve`
+      eval(code); // now `solve` exists
+
+      for (const test of question.testCases) {
+        const result = solve(...test.input);
+
+        if (JSON.stringify(result) !== JSON.stringify(test.expectedOutput)) {
+          allPassed = false;
+          break;
+        }
+      }
+    } catch (err) {
+      allPassed = false;
+    }
+
+    if (allPassed) {
+      alert("🎉 All test cases passed!");
+    } else {
+      alert("❌ Some test cases failed!");
+    }
+
     setStatus("submitted");
   };
 
-  if (loadingQuestion) {
-    return <p className="p-6 text-center text-lg">Loading AI-generated question...</p>;
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 text-center text-red-500">
-        <p>{error}</p>
-        <button onClick={onExit} className="mt-4 text-blue-600 underline">
-          Exit Arena
+  return (
+    <div className="h-screen w-screen flex flex-col">
+      <div className="flex-0 p-4 bg-gray-100 border-b flex justify-between">
+        <div>
+          <h1 className="text-xl font-bold">Arena</h1>
+          <p>Opponent: {opponentName}</p>
+          <p>Status: You - {status}, Opponent - {opponentStatus}</p>
+        </div>
+        <button className="bg-red-500 text-white px-4 py-2 rounded" onClick={onExit}>
+          Exit
         </button>
       </div>
-    );
-  }
 
-  return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Arena</h1>
-      <p className="mb-2">Opponent: {opponentName}</p>
+      <div className="flex flex-1">
+        {/* Left panel: question */}
+        <div className="w-1/2 p-6 overflow-auto bg-gray-50 border-r">
+          <h2 className="text-2xl font-semibold mb-4">{question.title}</h2>
+          <p className="mb-2">{question.description}</p>
+          <p className="text-sm font-mono mb-1"><strong>Expected Output:</strong> {question.output}</p>
+          <p className="text-sm font-mono"><strong>Example:</strong> {question.examples}</p>
+        </div>
 
-      <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-        <h2 className="font-semibold text-lg mb-2">{question.title}</h2>
-        <p className="mb-2">{question.description}</p>
-        <p className="text-sm font-mono mb-1"><strong>Input:</strong> {question.input}</p>
-        <p className="text-sm font-mono mb-2"><strong>Output:</strong> {question.output}</p>
-        <p className="text-sm font-mono"><strong>Example:</strong> {question.examples}</p>
+        {/* Right panel: editor */}
+        <div className="w-1/2 p-4 flex flex-col">
+          <div className="editor-container w-full h-[90%] p-4 bg-gray-800 rounded-lg shadow-lg">
+            <Editor
+              height="100%"
+              defaultLanguage="javascript"
+              value={code}
+    onChange={setCode}
+    options={{
+      fontSize: 16,
+      fontFamily: "Fira Code, monospace",
+      minimap: { enabled: false },
+      lineNumbers: "on",
+      wordWrap: "on",
+      scrollBeyondLastLine: false,
+      renderWhitespace: "all",
+      automaticLayout: true,
+    }}
+    theme="vs-dark"
+  />
+</div>
+
+          <button
+            onClick={submitAnswer}
+            disabled={status === "submitted"}
+            className={`mt-4 px-6 py-3 rounded-lg font-semibold text-white ${
+              status === "submitted" ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {status === "submitted" ? "Submitted" : "Submit Answer"}
+          </button>
+        </div>
       </div>
-
-      <textarea
-        value={answer}
-        onChange={(e) => setAnswer(e.target.value)}
-        placeholder="Type your solution here..."
-        className="w-full p-4 border rounded-lg mb-4"
-        rows={8}
-      />
-
-      <button
-        onClick={submitAnswer}
-        disabled={status === "submitted"}
-        className={`px-6 py-3 rounded-lg text-white font-semibold ${
-          status === "submitted" ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
-        }`}
-      >
-        {status === "submitted" ? "Submitted" : "Submit Answer"}
-      </button>
-
-      <p className="mt-4">Opponent Status: {opponentStatus}</p>
-
-      <button onClick={onExit} className="mt-6 text-red-500 underline">
-        Exit Arena
-      </button>
     </div>
   );
 };
