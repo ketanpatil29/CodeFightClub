@@ -1,8 +1,10 @@
 // server/authentication/server.js
+import 'dotenv/config';
+
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import 'dotenv/config';
+
 import authRoutes from "./routes/auth.js"; // ✅ fixed path
 
 const app = express();
