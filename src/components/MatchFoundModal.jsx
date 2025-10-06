@@ -16,7 +16,7 @@ const MatchFoundModal = ({ isOpen, findingOpponent, onEnterBattle, onCancelMatch
   // Optionally auto-enter after 2 seconds
       setTimeout(() => {
         onEnterBattle();
-      }, 9000);
+      }, 3000);
     };
 
     socket.once("matchFound", handleMatchFound);

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import './App.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from './context/MatchContext';
 
 import HeaderTop from './components/HeaderTop';
@@ -11,10 +11,8 @@ import Login from './components/Login';
 import CategoryModal from './components/CategoryModal';
 import MatchFoundModal from './components/MatchFoundModal';
 import Arena from './components/Arena';
-import axios from 'axios';
 
 function AppWrapper() {
-  // wrapper to use hooks like useNavigate
   return (
     <Router>
       <App />
@@ -33,7 +31,6 @@ function App() {
   const [matchFoundModalOpen, setMatchFoundModalOpen] = useState(false);
   const [findingOpponent, setFindingOpponent] = useState(true);
   const [opponent, setOpponent] = useState("");
-  const [question, setQuestion] = useState(null); // AI question
 
   const openCategoryModal = () => setCategoryModalOpen(true);
   const closeCategoryModal = () => setCategoryModalOpen(false);
@@ -50,83 +47,98 @@ function App() {
     setMatchFoundModalOpen(false);
   };
 
-  const fetchQuestion = async (category) => {
-    try {
-      const res = await axios.post("http://localhost:3000/ai/generate-question", { category });
-      return res.data.question;
-    } catch (err) {
-      console.error("Failed to fetch AI question:", err);
-      return { title: "Error", description: "Failed to fetch question.", input: "", output: "", examples: "" };
-    }
+  // Use a hardcoded question for testing
+  const testQuestion = {
+  title: "Two Sum",
+  description: "Return indices of two numbers adding to target",
+  input: "[nums, target]",
+  output: "[index1, index2]",
+  examples: "Example: nums = [2,7,11,15], target = 9 -> [0,1]",
+  testCases: [
+    { input: [[2,7,11,15], 9], expectedOutput: [0,1] },
+    { input: [[3,2,4], 6], expectedOutput: [1,2] }
+  ]
   };
 
   const enterBattle = async () => {
     setFindingOpponent(false);
     setMatchFoundModalOpen(false);
 
-    // fetch AI question
-    const aiQuestion = await fetchQuestion(selectedCategory);
-    setQuestion(aiQuestion);
+    const arenaData = {
+      opponent: opponent || "Test Opponent",
+      question: testQuestion,
+      user: { token },
+    };
 
-    // navigate to Arena page and pass opponent & question
-    navigate("/arena", { state: { opponent, question: aiQuestion, user: { token } } });
+    // Save arena data for refresh
+    localStorage.setItem("arenaData", JSON.stringify(arenaData));
+
+    navigate("/arena", { state: arenaData });
   };
 
   return (
-    <>
-      <HeaderTop token={token} setLoginOpen={setShowLogin} setToken={setToken} />
-      <Dashboard onEnterArena={openCategoryModal} />
-
-      <CategoryModal
-        isOpen={categoryModalOpen}
-        onClose={closeCategoryModal}
-        selectedCategory={selectedCategory}
-        onStartMatch={startMatch}
-        onSelectCategory={setSelectedCategory}
-      />
-
-      <MatchFoundModal
-        isOpen={matchFoundModalOpen}
-        onEnterBattle={enterBattle}
-        findingOpponent={findingOpponent}
-        onCancelMatch={cancelMatch}
-        selectedCategory={selectedCategory}
-        setFindingOpponent={setFindingOpponent}
-        setOpponent={setOpponent}
-        opponent={opponent}
-      />
-
-      {showLogin && <Login onClose={() => setShowLogin(false)} setToken={setToken} />}
+    <><div className="[font-family:'Space_Grotesk',sans-serif]">
+      {window.location.pathname !== "/arena" && (
+        <HeaderTop token={token} setLoginOpen={setShowLogin} setToken={setToken} />
+      )}
 
       <Routes>
         <Route
-          path="/arena"
-          element={<ArenaWrapper />}
+          path="/"
+          element={
+            <>
+              <Dashboard onEnterArena={openCategoryModal} />
+              <CategoryModal
+                isOpen={categoryModalOpen}
+                onClose={closeCategoryModal}
+                selectedCategory={selectedCategory}
+                onStartMatch={startMatch}
+                onSelectCategory={setSelectedCategory}
+              />
+              <MatchFoundModal
+                isOpen={matchFoundModalOpen}
+                onEnterBattle={enterBattle}
+                findingOpponent={findingOpponent}
+                onCancelMatch={cancelMatch}
+                selectedCategory={selectedCategory}
+                setFindingOpponent={setFindingOpponent}
+                setOpponent={setOpponent}
+                opponent={opponent}
+              />
+            </>
+          }
         />
+        <Route
+          path="/arena"
+            element={
+              <ArenaWrapper
+                onExit={() => {
+                  localStorage.removeItem("arenaData");
+                  navigate("/");
+                }}
+              />
+            }
+        />
+
       </Routes>
+      </div>
+
+      {showLogin && <Login onClose={() => setShowLogin(false)} setToken={setToken} />}
     </>
   );
 }
 
-// Wrapper to pass location state to Arena component
-import { useLocation } from 'react-router-dom';
-function ArenaWrapper() {
+// ArenaWrapper: gets state from router or localStorage
+function ArenaWrapper({ onExit }) {
   const location = useLocation();
-  const { opponent, question, user } = location.state || {};
+  const stateData = location.state || JSON.parse(localStorage.getItem("arenaData") || "{}");
+  const { opponent, question, user } = stateData;
 
   if (!question || !opponent) {
     return <p className="p-6 text-center">No opponent or question found. Please start a match first.</p>;
   }
 
-  return (
-    <Arena
-      roomId={user?.token} // or some room logic
-      user={user}
-      opponentName={opponent}
-      question={question.description} // show description in Arena
-      onExit={() => window.history.back()}
-    />
-  );
+  return <Arena user={user} opponentName={opponent} question={question} onExit={onExit} />;
 }
 
 export default AppWrapper;
