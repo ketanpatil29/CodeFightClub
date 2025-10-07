@@ -1,9 +1,10 @@
 // App.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from './context/MatchContext';
+import axios from 'axios';
 
 import HeaderTop from './components/HeaderTop';
 import Dashboard from './components/Dashboard';
@@ -40,6 +41,8 @@ function App() {
     setMatchFoundModalOpen(true);
     setFindingOpponent(true);
     setOpponent("");
+    // Join category via socket
+    socket.emit("joinCategory", { category: selectedCategory || "arrays", user: { _id: token, userName: token } });
   };
 
   const cancelMatch = () => {
@@ -47,80 +50,77 @@ function App() {
     setMatchFoundModalOpen(false);
   };
 
-  // Use a hardcoded question for testing
-  const testQuestion = {
-  title: "Two Sum",
-  description: "Return indices of two numbers adding to target",
-  input: "[nums, target]",
-  output: "[index1, index2]",
-  examples: "Example: nums = [2,7,11,15], target = 9 -> [0,1]",
-  testCases: [
-    { input: [[2,7,11,15], 9], expectedOutput: [0,1] },
-    { input: [[3,2,4], 6], expectedOutput: [1,2] }
-  ]
-  };
-
-  const enterBattle = async () => {
+  const enterBattle = () => {
+    // Arena data is already stored in localStorage by MatchFoundModal
+    const arenaData = JSON.parse(localStorage.getItem("arenaData") || "{}");
+    if (!arenaData || !arenaData.question) return alert("No question found!");
     setFindingOpponent(false);
     setMatchFoundModalOpen(false);
-
-    const arenaData = {
-      opponent: opponent || "Test Opponent",
-      question: testQuestion,
-      user: { token },
-    };
-
-    // Save arena data for refresh
-    localStorage.setItem("arenaData", JSON.stringify(arenaData));
-
     navigate("/arena", { state: arenaData });
   };
 
+  // Listen for matchFound socket event to auto-open matchFound modal
+  useEffect(() => {
+    if (!socket) return;
+    const handleMatchFound = (data) => {
+      console.log("Match found via socket:", data);
+      setFindingOpponent(false);
+      setOpponent(data.opponent);
+
+      // Save arenaData for ArenaWrapper
+      localStorage.setItem("arenaData", JSON.stringify({
+        roomId: data.roomId,
+        question: data.question,
+        opponent: data.opponent,
+        user: { token }
+      }));
+
+      // Auto-enter battle after short delay
+      setTimeout(() => enterBattle(), 1500);
+    };
+
+    socket.on("matchFound", handleMatchFound);
+    return () => socket.off("matchFound", handleMatchFound);
+  }, [socket]);
+
   return (
-    <><div className="[font-family:'Space_Grotesk',sans-serif]">
-      {window.location.pathname !== "/arena" && (
-        <HeaderTop token={token} setLoginOpen={setShowLogin} setToken={setToken} />
-      )}
+    <>
+      <div className="[font-family:'Space_Grotesk',sans-serif]">
+        {window.location.pathname !== "/arena" && (
+          <HeaderTop token={token} setLoginOpen={setShowLogin} setToken={setToken} />
+        )}
 
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <>
-              <Dashboard onEnterArena={openCategoryModal} />
-              <CategoryModal
-                isOpen={categoryModalOpen}
-                onClose={closeCategoryModal}
-                selectedCategory={selectedCategory}
-                onStartMatch={startMatch}
-                onSelectCategory={setSelectedCategory}
-              />
-              <MatchFoundModal
-                isOpen={matchFoundModalOpen}
-                onEnterBattle={enterBattle}
-                findingOpponent={findingOpponent}
-                onCancelMatch={cancelMatch}
-                selectedCategory={selectedCategory}
-                setFindingOpponent={setFindingOpponent}
-                setOpponent={setOpponent}
-                opponent={opponent}
-              />
-            </>
-          }
-        />
-        <Route
-          path="/arena"
+        <Routes>
+          <Route
+            path="/"
             element={
-              <ArenaWrapper
-                onExit={() => {
-                  localStorage.removeItem("arenaData");
-                  navigate("/");
-                }}
-              />
+              <>
+                <Dashboard onEnterArena={openCategoryModal} />
+                <CategoryModal
+                  isOpen={categoryModalOpen}
+                  onClose={closeCategoryModal}
+                  selectedCategory={selectedCategory}
+                  onStartMatch={startMatch}
+                  onSelectCategory={setSelectedCategory}
+                />
+                <MatchFoundModal
+                  isOpen={matchFoundModalOpen}
+                  onEnterBattle={enterBattle}
+                  findingOpponent={findingOpponent}
+                  onCancelMatch={cancelMatch}
+                  selectedCategory={selectedCategory}
+                  setFindingOpponent={setFindingOpponent}
+                  setOpponent={setOpponent}
+                  opponent={opponent}
+                />
+              </>
             }
-        />
-
-      </Routes>
+          />
+          <Route
+            path="/arena"
+            element={<ArenaWrapper onExit={() => { localStorage.removeItem("arenaData"); navigate("/"); }} />}
+          />
+        </Routes>
       </div>
 
       {showLogin && <Login onClose={() => setShowLogin(false)} setToken={setToken} />}
@@ -128,17 +128,31 @@ function App() {
   );
 }
 
-// ArenaWrapper: gets state from router or localStorage
+// ArenaWrapper: gets arena data from router state or localStorage
 function ArenaWrapper({ onExit }) {
   const location = useLocation();
-  const stateData = location.state || JSON.parse(localStorage.getItem("arenaData") || "{}");
-  const { opponent, question, user } = stateData;
+  const arenaData = location.state || JSON.parse(localStorage.getItem("arenaData") || "{}");
+  const { opponent, question, user, roomId } = arenaData;
+
+  const socket = useSocket();
+  const [opponentStatus, setOpponentStatus] = useState("waiting");
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleOpponentUpdate = ({ userId, passedAll }) => {
+      if (userId !== user.token) setOpponentStatus(passedAll ? "submitted ✅" : "failed ❌");
+    };
+
+    socket.on("opponentStatusUpdate", handleOpponentUpdate);
+    return () => socket.off("opponentStatusUpdate", handleOpponentUpdate);
+  }, [socket, user]);
 
   if (!question || !opponent) {
     return <p className="p-6 text-center">No opponent or question found. Please start a match first.</p>;
   }
 
-  return <Arena user={user} opponentName={opponent} question={question} onExit={onExit} />;
+  return <Arena user={user} opponentName={opponent} question={question} onExit={onExit} roomId={roomId} opponentStatus={opponentStatus} />;
 }
 
 export default AppWrapper;
