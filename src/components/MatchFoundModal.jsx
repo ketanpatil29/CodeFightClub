@@ -8,16 +8,23 @@ const MatchFoundModal = ({ isOpen, findingOpponent, onEnterBattle, onCancelMatch
     if (!socket) return;
 
     const handleMatchFound = (data) => {
-      console.log("Match found:", data);
-      // Update UI: opponent found
-      setFindingOpponent(false);
-      setOpponent(data.opponent); // optional: store opponent info
+  console.log("Match found:", data);
 
-  // Optionally auto-enter after 2 seconds
-      setTimeout(() => {
-        onEnterBattle();
-      }, 3000);
-    };
+  setFindingOpponent(false);
+  setOpponent(data.opponent);
+
+  // Save arena data for ArenaWrapper
+  localStorage.setItem("arenaData", JSON.stringify({
+    roomId: data.roomId,
+    question: data.question,
+    opponent: data.opponent,
+    user: { token: localStorage.getItem("token") }
+  }));
+
+  // Auto-enter
+  setTimeout(() => onEnterBattle(), 3000);
+};
+
 
     socket.once("matchFound", handleMatchFound);
 

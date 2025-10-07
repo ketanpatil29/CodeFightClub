@@ -2,8 +2,6 @@ import React, { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { useSocket } from "../context/MatchContext";
 
-
-
 const Arena = ({ user, opponentName, question, onExit }) => {
   const socket = useSocket();
   const [code, setCode] = useState(""); // Only function body
@@ -20,32 +18,9 @@ const Arena = ({ user, opponentName, question, onExit }) => {
   }, []);
 
   const submitAnswer = () => {
-    let allPassed = true;
-
-    try {
-      // Evaluate the user code + automatically defined function `solve`
-      eval(code); // now `solve` exists
-
-      for (const test of question.testCases) {
-        const result = solve(...test.input);
-
-        if (JSON.stringify(result) !== JSON.stringify(test.expectedOutput)) {
-          allPassed = false;
-          break;
-        }
-      }
-    } catch (err) {
-      allPassed = false;
-    }
-
-    if (allPassed) {
-      alert("🎉 All test cases passed!");
-    } else {
-      alert("❌ Some test cases failed!");
-    }
-
-    setStatus("submitted");
+    socket.emit("submitAnswer", { userId: user.token, code, roomId: localStorage.getItem("arenaData")?.roomId });
   };
+
 
   return (
     <div className="h-screen w-screen flex flex-col">
