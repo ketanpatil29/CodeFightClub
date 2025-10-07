@@ -106,4 +106,48 @@ Respond STRICTLY in valid JSON format.`,
   }
 });
 
+router.post("/submit-answer", async (req, res) => {
+  const { code, question } = req.body;
+
+  if (!code || !question?.testCases) {
+    return res.status(400).json({ success: false, error: "Missing code or test cases" });
+  }
+
+  try {
+    const sandbox = {};
+    vm.createContext(sandbox);
+
+    // Inject user's code into VM
+    vm.runInContext(code, sandbox);
+
+    const solve = sandbox.solve;
+    if (typeof solve !== "function") {
+      return res.status(400).json({ success: false, error: "Function 'solve' not found" });
+    }
+
+    let allPassed = true;
+    let results = [];
+
+    for (const { input, expectedOutput } of question.testCases) {
+      const output = solve(...input);
+      const passed = JSON.stringify(output) === JSON.stringify(expectedOutput);
+      results.push({ input, output, expectedOutput, passed });
+      if (!passed) allPassed = false;
+    }
+
+    return res.json({
+      success: allPassed,
+      results,
+      message: allPassed ? "✅ All test cases passed!" : "❌ Some test cases failed",
+    });
+
+  } catch (err) {
+    console.error("Error evaluating user code:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
 export default router;
