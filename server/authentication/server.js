@@ -12,7 +12,7 @@ app.use(express.json());
 
 // Enable CORS for frontend
 app.use(cors({
-  origin: "http://localhost:5174", // your React frontend
+  origin: "http://localhost:5173", // your React frontend
   credentials: true
 }));
 
