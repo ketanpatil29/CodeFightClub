@@ -8,6 +8,7 @@ import axios from 'axios';
 
 import HeaderTop from './components/HeaderTop';
 import Dashboard from './components/Dashboard';
+import HowItWokrs from './components/HowItWorks';
 import Login from './components/Login';
 import CategoryModal from './components/CategoryModal';
 import MatchFoundModal from './components/MatchFoundModal';
@@ -96,6 +97,7 @@ function App() {
             element={
               <>
                 <Dashboard onEnterArena={openCategoryModal} />
+                <HowItWokrs />
                 <CategoryModal
                   isOpen={categoryModalOpen}
                   onClose={closeCategoryModal}
