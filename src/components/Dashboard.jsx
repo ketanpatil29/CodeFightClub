@@ -38,7 +38,7 @@ const cardVariants = {
 
 const Dashboard = ({ onEnterArena }) => {
   return (
-    <section className="min-h-screen bg-gradient-to-br from-black to-gray-950 flex justify-center items-center relative pt-20">
+    <section className="min-h-screen bg-gradient-to-br from-black to-gray-900 flex justify-center items-center relative pt-20">
       <div className="max-w-6xl mx-auto px-4">
         {/* Hero Section */}
         <motion.div
