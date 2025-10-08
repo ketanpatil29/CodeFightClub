@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 const HeaderTop = ({ token, setToken, setLoginOpen }) => {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   // On mount, check if user is logged in
   useEffect(() => {
@@ -17,32 +17,68 @@ const HeaderTop = ({ token, setToken, setLoginOpen }) => {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    setToken(null);  // update state so UI reflects logout
+    setToken(null);
   };
 
+  const navItems = ["HOME", "HOW IT WORKS?", "CATEGORIES", "LEADERBOARD"];
+
   return (
-    <nav className="fixed w-full z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100 py-4 px-6">
+    <motion.nav
+      initial={{ y: -50, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 80, damping: 12 }}
+      className="fixed w-full z-50 bg-black/70 backdrop-blur-sm border-b border-gray-100 py-4 px-6 shadow-md"
+    >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <h1 className="font-sans font-bold italic text-2xl md:text-2xl">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-pink-600">
-              CODEFIGHTCLUB
-            </span>
-        </h1>
-        
+        {/* Logo */}
+        <motion.h1
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 120 }}
+          className="font-sans font-bold italic text-2xl md:text-2xl cursor-pointer"
+          onClick={() => navigate("/")}
+        >
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-pink-600">
+            CODEFIGHTCLUB
+          </span>
+        </motion.h1>
+
+        {/* Navigation Links */}
         <div className="hidden md:flex space-x-8">
-          <a className="text-gray-700 hover:scale-110 hover:text-purple-600 transition-transform duration-200 font-medium">HOME</a>
-          <a className="text-gray-700 hover:scale-110 hover:text-purple-600 transition-transform duration-200 font-medium">HOW IT WORKS?</a>
-          <a className="text-gray-700 hover:scale-110 hover:text-purple-600 transition-transform duration-200 font-medium">CATEGORIES</a>
-          <a className="text-gray-700 hover:scale-110 hover:text-purple-600 transition-transform duration-200 font-medium">LEADERBOARD</a>
+          {navItems.map((item, index) => (
+            <motion.a
+              key={index}
+              whileHover={{ scale: 1.1, y: -2, color: "#D946EF" }}
+              transition={{ type: "spring", stiffness: 120 }}
+              className="text-gray-300 font-medium cursor-pointer"
+            >
+              {item}
+            </motion.a>
+          ))}
 
-          {token ? ( <> <button onClick={handleLogout} className="ml-4 text-red-600 hover:text-red-800 font-medium">LOGOUT</button>  
-          </> ) : (
-          <button onClick={handleLoginClick} className="text-pink-700 hover:scale-110 hover:text-purple-700 transition-transform duration-200 font-medium">LOGIN</button>
+          {token ? (
+            <motion.button
+              whileHover={{ scale: 1.05, y: -2 }}
+              transition={{ type: "spring", stiffness: 120 }}
+              onClick={handleLogout}
+              className="ml-4 text-red-600 hover:text-red-800 font-medium"
+            >
+              LOGOUT
+            </motion.button>
+          ) : (
+            <motion.button
+              whileHover={{ scale: 1.05, y: -2, color: "#D946EF" }}
+              transition={{ type: "spring", stiffness: 120 }}
+              onClick={handleLoginClick}
+              className="text-pink-700 font-medium"
+            >
+              LOGIN
+            </motion.button>
           )}
-          </div>
+        </div>
       </div>
-    </nav>
-  )
-}
+    </motion.nav>
+  );
+};
 
-export default HeaderTop
+export default HeaderTop;
