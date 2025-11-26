@@ -9,7 +9,7 @@ const HeaderTop = ({ token, setToken, setLoginOpen }) => {
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     if (savedToken) setToken(savedToken);
-  }, []);
+  }, [setToken]);
 
   const handleLoginClick = () => {
     setLoginOpen(true);
@@ -48,29 +48,28 @@ const HeaderTop = ({ token, setToken, setLoginOpen }) => {
           {navItems.map((item, index) => (
             <motion.a
               key={index}
-              whileHover={{ scale: 1.1, y: -2, color: "#D946EF" }}
+              whileHover={{ scale: 1.1, y: -2 }}
               transition={{ type: "spring", stiffness: 120 }}
-              className="text-gray-300 font-medium cursor-pointer"
+              className="text-gray-300 font-medium cursor-pointer hover:text-fuchsia-500 transition-colors"
             >
               {item}
             </motion.a>
           ))}
-
           {token ? (
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               transition={{ type: "spring", stiffness: 120 }}
               onClick={handleLogout}
-              className="ml-4 text-red-600 hover:text-red-800 font-medium"
+              className="ml-4 text-red-600 hover:text-red-800 font-medium transition-colors"
             >
               LOGOUT
             </motion.button>
           ) : (
             <motion.button
-              whileHover={{ scale: 1.05, y: -2, color: "#D946EF" }}
+              whileHover={{ scale: 1.05, y: -2 }}
               transition={{ type: "spring", stiffness: 120 }}
               onClick={handleLoginClick}
-              className="text-pink-700 font-medium"
+              className="text-pink-700 font-medium hover:text-fuchsia-500 transition-colors"
             >
               LOGIN
             </motion.button>

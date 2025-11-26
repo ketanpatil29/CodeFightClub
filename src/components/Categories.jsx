@@ -1,78 +1,82 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useSocket } from '../context/MatchContext';
+// components/Categories.js
+import React from 'react';
 
-const categories = ["DSA", "Problem Solving", "Logic", "Algorithms"];
-
-const Categories = ({ onClose }) => {
-  const socket = useSocket();
-  const navigate = useNavigate();
-  
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectCategory, setSelectCategory] = useState(null);
-
-  useEffect(() => {
-    // Listen for a successful match
-    socket.on("matchFound", ({ roomId, question }) => {
-      navigate(`/arena/${roomId}`, { state: { question } });
-    });
-
-    // Clean up the socket listener when component unmounts
-    return () => {
-      socket.off("matchFound");
-    };
-  }, [socket, navigate]);
-
-  const handleCategoryClick = (category) => {
-    setIsSearching(true);
-    setSelectCategory(category);
-    socket.emit("joinCategory", category);
-  };
-
-  const handleCancel = () => {
-    socket.emit("leaveQueue", selectCategory);
-    setIsSearching(false);
-    setSelectCategory(null);
-    onClose();
-  }
+const Categories = ({ onSelectCategory }) => {
+  const categories = [
+    { 
+      id: 'dsa', 
+      title: 'DSA', 
+      description: 'Data Structures & Algorithms', 
+      icon: 'fas fa-sitemap',
+      color: 'bg-purple-100',
+      textColor: 'text-purple-600',
+      badges: ['EASY', 'MEDIUM', 'HARD']
+    },
+    { 
+      id: 'problem-solving', 
+      title: 'PROBLEM', 
+      description: 'Real-world coding challenges', 
+      icon: 'fas fa-lightbulb',
+      color: 'bg-pink-100',
+      textColor: 'text-pink-500',
+      badges: ['CREATE', 'SOLVE']
+    },
+    { 
+      id: 'logic', 
+      title: 'LOGIC', 
+      description: 'Think fast, code faster', 
+      icon: 'fas fa-brain',
+      color: 'bg-yellow-100',
+      textColor: 'text-yellow-500',
+      badges: ['PUZZLE', 'RIDDLE']
+    },
+    { 
+      id: 'algorithms', 
+      title: 'ALGO', 
+      description: 'Optimize your solutions', 
+      icon: 'fas fa-project-diagram',
+      color: 'bg-blue-100',
+      textColor: 'text-blue-500',
+      badges: ['SPEED', 'POWER']
+    }
+  ];
 
   return (
-    <div className="w-[400px] bg-white rounded-lg p-6 shadow-xl text-center">
-      {!isSearching ? (
-        <>
-          <h1 className="text-3xl mb-6 font-bold text-[#693495]">Select a Category</h1>
-          <div className="flex flex-col gap-4">
-            {["DSA", "Problem Solving", "Logic", "Algorithms"].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => handleCategoryClick(cat)}
-                className="bg-purple-700 hover:bg-purple-800 transition text-white py-3 px-6 rounded-lg text-lg font-medium"
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={onClose}
-            className="mt-6 text-gray-600 hover:text-red-600 underline text-sm"
-          >
-            Cancel
-          </button>
-        </>
-      ) : (
-        <>
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Searching for opponent...</h2>
-          <div className="loader mx-auto my-4" />
-          <p className="text-gray-600 mb-6">Category: <strong>{selectCategory}</strong></p>
-          <button
-            onClick={handleCancel}
-            className="text-red-600 hover:text-red-800 underline"
-          >
-            Cancel
-          </button>
-        </>
-      )}
-    </div>
+    <section id="categories" className="py-20 px-4 bg-gray-50">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="font-bold text-4xl mb-4">CHOOSE YOUR BATTLE MODE</h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">Select a category that matches your coding expertise</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {categories.map((category) => (
+            <div 
+              key={category.id}
+              className="bg-white rounded-xl p-6 text-center cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-gray-100 relative overflow-hidden group"
+              onClick={() => onSelectCategory(category.title)}
+            >
+              <div className={`absolute top-0 left-0 w-full h-1 ${category.color.replace('bg-', 'bg-')}`}></div>
+              <div className={`${category.color} w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4`}>
+                <i className={`${category.icon} ${category.textColor} text-2xl`}></i>
+              </div>
+              <h3 className="font-bold text-xl mb-2">{category.title}</h3>
+              <p className="text-gray-600 mb-4">{category.description}</p>
+              <div className="flex justify-center space-x-2">
+                {category.badges.map((badge, index) => (
+                  <span 
+                    key={index} 
+                    className={`px-3 py-1 rounded-full text-xs font-medium ${category.textColor.replace('text-', 'bg-').replace('600', '100')} ${category.textColor}`}
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 };
 

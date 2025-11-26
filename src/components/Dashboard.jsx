@@ -27,12 +27,12 @@ const cards = [
 
 const cardVariants = {
   offscreen: { y: 50, opacity: 0, scale: 0.8, rotate: -5 },
-  onscreen: { 
-    y: 0, 
-    opacity: 1, 
-    scale: 1, 
-    rotate: 0, 
-    transition: { type: "spring", bounce: 0.4, duration: 1 } 
+  onscreen: {
+    y: 0,
+    opacity: 1,
+    scale: 1,
+    rotate: 0,
+    transition: { type: "spring", bounce: 0.4, duration: 1 }
   }
 };
 
