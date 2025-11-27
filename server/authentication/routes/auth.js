@@ -3,22 +3,12 @@ import 'dotenv/config';
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
+import { Resend } from 'resend';
 
-import User from "../models/users.js"; // make sure this is ESM-exported
+import User from "../models/users.js";
 
 const router = express.Router();
-
-// Nodemailer transporter
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, 
-  },
-  logger: true,
-  debug: true,
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // POST /auth/send-otp
 router.post("/send-otp", async (req, res) => {
@@ -26,30 +16,25 @@ router.post("/send-otp", async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Email is required" });
 
-    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
 
-    // Save OTP and expiry to user in DB (create user if not exists)
     let user = await User.findOne({ email });
-    if (!user) {
-      user = new User({ email });
-    }
+    if (!user) user = new User({ email });
+
     user.otp = otp.toString();
-    user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min expiry
+    user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000); 
     await user.save();
 
-    // Send OTP via email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM,
       to: email,
       subject: "Your OTP Code",
-      text: `Your OTP is ${otp}`
-    };
+      html: `<p>Your OTP is <b>${otp}</b></p>`
+    });
 
-    await transporter.sendMail(mailOptions);
     console.log(`✅ OTP sent to ${email}:`, otp);
 
-    res.status(200).json({ message: "OTP sent successfully" });
+    res.json({ message: "OTP sent successfully" });
   } catch (error) {
     console.error("💀 Error in /send-otp route:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -64,13 +49,12 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ message: "Email, OTP, and password are required" });
 
     const user = await User.findOne({ email });
+
     if (!user || user.otp !== otp || user.otpExpiry < new Date()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // Hash password and update user
-    const passwordHash = await bcrypt.hash(password, 10);
-    user.passwordHash = passwordHash;
+    user.passwordHash = await bcrypt.hash(password, 10);
     user.otp = null;
     user.otpExpiry = null;
     await user.save();
@@ -90,17 +74,21 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
 
     const user = await User.findOne({ email });
+
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
     res.json({
       message: "Login successful",
       token,
       user: {
         _id: user._id,
-        userName: user.userName || "", // optional
+        userName: user.userName || "",
         email: user.email,
       },
     });
