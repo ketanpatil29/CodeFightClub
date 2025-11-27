@@ -3,18 +3,25 @@ import 'dotenv/config';
 import express from "express";
 import http from "http";
 import cors from "cors";
-import authApp from "./authentication/server.js"; // DB + auth routes
+import authRoutes from "./authentication/routes/auth.js";
 import initSocket from "./socketHandler.js";
 
 import runCodeRouter from "./authentication/routes/runCode.js";
 import aiQuestionsRouter from "./aiQuestions.js";
 
 const app = express();
-app.use(cors({ origin: "*", credentials: true }));
+app.use(cors({
+  origin: [
+    "https://codefightclub.vercel.app",
+    "http://localhost:5173"
+  ],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Mount auth routes from server.js
-app.use(authApp); // ✅ all /auth routes are included
+app.use("/auth", authRoutes);
 
 // Other routes
 app.use("/ai", aiQuestionsRouter);
