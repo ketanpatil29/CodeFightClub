@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { API_BASE } from "./Api";
 
 const Login = ({ onClose, setToken, setUsername }) => {
   const [email, setEmail] = useState("");
@@ -13,7 +14,7 @@ const Login = ({ onClose, setToken, setUsername }) => {
 
   const sendOtp = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/auth/send-otp", { email });
+      const res = await axios.post(`${API_BASE}/auth/send-otp`, { email });
       setMessage(res.data.message || "OTP sent to your email!");
       setTimeout(() => {
         setOtpSent(true);
@@ -25,7 +26,7 @@ const Login = ({ onClose, setToken, setUsername }) => {
 
   const verifyOtp = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/auth/verify-otp", {
+      const res = await axios.post(`${API_BASE}/auth/verify-otp`, {
         email,
         otp,
         password
@@ -38,7 +39,7 @@ const Login = ({ onClose, setToken, setUsername }) => {
 
   const loginUser = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/auth/login", {
+      const res = await axios.post(`${API_BASE}/auth/login`, {
         email,
         password
       });
