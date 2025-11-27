@@ -1,103 +1,99 @@
-import "dotenv/config";
-
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
-
-import User from "../models/users.js";
+import axios from "axios";
+import User from "../models/users.js";  // your existing User model
 
 const router = express.Router();
 
-// ----------------------------
-// EMAIL TRANSPORTER (GMAIL)
-// ----------------------------
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // TLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // MUST be Gmail App Password
-  },
-});
+async function sendOTPEmail(to, otp) {
+  try {
+    const response = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: { email: process.env.EMAIL_FROM },
+        to: [{ email: to }],
+        subject: "Your OTP Code",
+        htmlContent: `<p>Your OTP is: <b>${otp}</b></p>`
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json"
+        }
+      }
+    );
 
-// ----------------------------
-// SEND OTP
-// ----------------------------
+    console.log("📩 Email Sent:", response.data);
+    return true;
+  } catch (err) {
+    console.error("Email Error:", err.response?.data || err);
+    return false;
+  }
+}
+
+/* ==========================
+   SEND OTP ROUTE
+   ========================== */
 router.post("/send-otp", async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email is required" });
+    if (!email)
+      return res.status(400).json({ message: "Email is required" });
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = Math.floor(100000 + Math.random() * 900000);
 
-    // Save OTP
     let user = await User.findOne({ email });
+
     if (!user) user = new User({ email });
 
-    user.otp = otp;
+    user.otp = otp.toString();
     user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 mins
+
     await user.save();
 
-    // Prepare email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your OTP is ${otp}`,
-    });
-
-    console.log(`📧 OTP sent to ${email}: ${otp}`);
+    const sent = await sendOTPEmail(email, otp);
+    if (!sent) return res.status(500).json({ message: "Failed to send OTP" });
 
     res.json({ message: "OTP sent successfully" });
-
   } catch (error) {
-    console.error("💀 OTP send error:", error);
-    res.status(500).json({ error: "Failed to send OTP" });
+    console.error("Send OTP Error:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// ----------------------------
-// VERIFY OTP + SET PASSWORD
-// ----------------------------
+/* ==========================
+   VERIFY OTP ROUTE
+   ========================== */
 router.post("/verify-otp", async (req, res) => {
   try {
     const { email, otp, password } = req.body;
 
     if (!email || !otp || !password)
-      return res.status(400).json({ message: "Email, OTP & Password required" });
+      return res.status(400).json({ message: "Missing fields" });
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "User not found" });
 
-    if (user.otp !== otp)
-      return res.status(400).json({ message: "Incorrect OTP" });
+    if (!user || user.otp !== otp || user.otpExpiry < Date.now()) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
 
-    if (user.otpExpiry < Date.now())
-      return res.status(400).json({ message: "OTP expired" });
-
-    // Hash password
     user.passwordHash = await bcrypt.hash(password, 10);
-
-    // Clear OTP
     user.otp = null;
     user.otpExpiry = null;
 
     await user.save();
 
     res.json({ message: "Password set successfully" });
-
   } catch (error) {
-    console.error("💀 Verify OTP error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Verify OTP Error:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// ----------------------------
-// LOGIN
-// ----------------------------
+/* ==========================
+   LOGIN ROUTE
+   ========================== */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -106,29 +102,26 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Email & password required" });
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "User not found" });
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.status(400).json({ message: "Invalid password" });
+    if (!user || !(await bcrypt.compare(password, user.passwordHash)))
+      return res.status(400).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h"
+    });
 
     res.json({
       message: "Login successful",
       token,
       user: {
-        _id: user._id,
+        id: user._id,
         email: user.email,
-      },
+        username: user.username || ""
+      }
     });
-
   } catch (error) {
-    console.error("💀 Login error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Login Error:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
