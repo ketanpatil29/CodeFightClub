@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { useSocket } from "../context/MatchContext";
+import { API_BASE } from "./Api";
 
 const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
   const socket = useSocket();
@@ -68,7 +69,7 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
     const roomId = arenaData.roomId;
 
     try {
-      const res = await fetch("http://localhost:3000/ai/submit-answer", {
+      const res = await fetch(`${API_BASE}/ai/submit-answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, question }),
