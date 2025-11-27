@@ -25,12 +25,14 @@ router.post("/send-otp", async (req, res) => {
     user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000); 
     await user.save();
 
-    await resend.emails.send({
+    const mail = await resend.emails.send({
       from: process.env.EMAIL_FROM,
       to: email,
       subject: "Your OTP Code",
       html: `<p>Your OTP is <b>${otp}</b></p>`
     });
+
+    console.log("📧 RESEND RESPONSE:", mail);
 
     console.log(`✅ OTP sent to ${email}:`, otp);
 

@@ -26,7 +26,7 @@ app.use("/run-code", runCodeRouter);
 const server = http.createServer(app);
 initSocket(server);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 // Wait for MongoDB before starting server
 mongoose.connect(process.env.MONGO_URI)
