@@ -1,4 +1,7 @@
 import { Server } from "socket.io";
+import dotenv from "dotenv";
+dotenv.config();
+
 import axios from "axios";
 
 const waitingUsers = {}; // { category: [{ userId, username, socketId, question }] }
@@ -14,6 +17,8 @@ export default function initSocket(server) {
       credentials: true,
     },
   });
+
+  const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3000";
 
   io.on("connection", (socket) => {
     console.log(`✅ User connected: ${socket.id}`);
@@ -96,7 +101,7 @@ export default function initSocket(server) {
         // No opponent yet - generate question and wait
         try {
           console.log(`📝 Generating question for ${username}...`);
-          const response = await axios.post("http://localhost:3000/ai/generate-question", {
+          const response = await axios.post(`${BACKEND_URL}/ai/generate-question`, {
             category: category || "DSA"
           });
           
