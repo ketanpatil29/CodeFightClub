@@ -5,7 +5,7 @@ import vm from "vm";
 const router = express.Router();
 
 // Initialize Gemini with your API key (get free key from: https://aistudio.google.com/apikey)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyCCyjj9nFo9A9rFFijBxHlS1rmxYBY_UQ0");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
 // Verified questions pool (always correct)
@@ -129,66 +129,57 @@ function parseJSONResponse(text) {
 // Generate question: 70% verified, 30% AI-generated
 router.post("/generate-question", async (req, res) => {
   const { category = "DSA" } = req.body;
-  
-  // 70% chance to use verified question, 30% chance to try AI
-  const useVerified = Math.random() < 0.7;
-  
-  if (useVerified) {
+
+  // 95% of the time → use verified question (super fast)
+  const useAI = Math.random() < 0.05;
+
+  if (!useAI) {
     const randomQuestion = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
-    console.log(`✅ Using verified question: ${randomQuestion.title}`);
     return res.json({ question: randomQuestion });
   }
-  
-  // Try AI generation
-  console.log(`🧠 Generating AI question for category: ${category}...`);
+
+  // AI disabled if no API key
+  if (!process.env.GEMINI_API_KEY) {
+    const randomQuestion = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
+    return res.json({ question: randomQuestion });
+  }
 
   try {
-    const prompt = `Generate a medium-difficulty coding problem about ${category}.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000); // 3 sec max
 
-CRITICAL RULES:
-1. Test cases MUST be 100% mathematically/logically correct
-2. Manually verify EACH test case before including it
-3. Avoid complex math problems - use simple array/string operations
-4. Create 3-4 test cases that are DEFINITELY correct
-
-Good problem types:
-- Array operations (sum, max, min, count, filter)
-- String manipulation (reverse, count chars, check palindrome)
-- Simple searches (find element, find duplicates)
-- Basic transformations (square numbers, uppercase, etc)
-
-Return ONLY valid JSON with NO markdown formatting:
+    const prompt = `
+Generate a simple coding problem with guaranteed correct test cases.
+Return ONLY JSON:
 {
-  "title": "Problem Name",
-  "description": "Clear problem description",
-  "input": "Input parameter description",
-  "output": "Output description",
-  "examples": "Example: input → output",
-  "testCases": [
-    { "input": [arg1, arg2], "expectedOutput": correctResult }
-  ]
+  "title": "...",
+  "description": "...",
+  "input": "...",
+  "output": "...",
+  "examples": "...",
+  "testCases": [ { "input": [...], "expectedOutput": ... } ]
 }`;
 
-    const result = await model.generateContent(prompt);
+    const result = await Promise.race([
+      model.generateContent(prompt),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("AI timeout")), 3000))
+    ]);
+
+    clearTimeout(timeout);
+
     const aiMessage = result.response.text();
-    
-    console.log("🤖 Gemini Response:", aiMessage);
-    
     const question = parseJSONResponse(aiMessage);
 
-    if (!question || !question.testCases || question.testCases.length < 2) {
-      console.warn("⚠️ Invalid AI response, using verified fallback");
-      const randomFallback = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
-      return res.json({ question: randomFallback });
+    if (!question || !question.testCases) {
+      throw new Error("Invalid AI JSON");
     }
 
-    console.log("✅ Question generated:", question.title);
-    res.json({ question });
+    return res.json({ question });
 
   } catch (err) {
-    console.error("❌ AI Error:", err.message);
-    const randomFallback = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
-    res.json({ question: randomFallback });
+    console.log("⚠️ AI failed → using fallback:", err.message);
+    const randomQuestion = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
+    return res.json({ question: randomQuestion });
   }
 });
 
