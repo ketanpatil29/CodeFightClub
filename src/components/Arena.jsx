@@ -94,7 +94,7 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
         setStatus("completed");
         // Emit to opponent that you've completed
         socket?.emit("submitAnswer", { 
-          userId: user.id || user.token, 
+          userId: user._id, 
           roomId,
           success: true,
         });
@@ -131,7 +131,7 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
     
     if (confirmExit) {
       socket?.emit("exitArena", { 
-        userId: user.id || user.token, 
+        userId: user._id, 
         roomId 
       });
       onExit();
