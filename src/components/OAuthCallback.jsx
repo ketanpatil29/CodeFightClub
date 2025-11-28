@@ -11,12 +11,18 @@ export default function OAuthCallback() {
     const username = params.get("username");
 
     if (token) {
+      // Save only if values exist
       localStorage.setItem("token", token);
-      localStorage.setItem("email", email);
-      localStorage.setItem("username", username);
-    }
 
-    navigate("/"); // redirect to home/dashboard
+      if (email) localStorage.setItem("email", email);
+      if (username) localStorage.setItem("username", username);
+
+      // Delay so user sees "Logging you in…" and token is saved properly
+      setTimeout(() => navigate("/"), 500);
+    } else {
+      console.error("OAuth failed → no token found in URL");
+      setTimeout(() => navigate("/login"), 800);
+    }
   }, []);
 
   return (
