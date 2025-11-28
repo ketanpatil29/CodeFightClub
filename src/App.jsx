@@ -10,6 +10,7 @@ import HeaderTop from './components/HeaderTop';
 import Dashboard from './components/Dashboard';
 import HowItWokrs from './components/HowItWorks';
 import Login from './components/Login';
+import OAuthCallback from './components/OAuthCallback';
 import CategoryModal from './components/CategoryModal';
 import MatchFoundModal from './components/MatchFoundModal';
 import Arena from './components/Arena';
@@ -151,6 +152,9 @@ function App() {
               </>
             }
           />
+
+          <Route path="/oauth-callback" element={<OAuthCallback />} />
+
           <Route
             path="/arena"
             element={
