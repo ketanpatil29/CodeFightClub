@@ -1,160 +1,125 @@
-// routes/auth.js
 import express from "express";
-import axios from "axios";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import User from "../models/users.js"; // your mongoose User model
-import bcrypt from "bcrypt"; // not used for oauth but kept if needed
+import axios from "axios";
+import User from "../models/users.js";
 
 const router = express.Router();
 
-/**
- * Helper: sign JWT
- */
-function signToken(userId) {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
-}
-
-/**
- * Helper: upsert user by email and provider info
- */
-async function findOrCreateUser({ email, name, provider, providerId, avatar }) {
-  if (!email) {
-    throw new Error("Email is required from provider");
-  }
-
-  let user = await User.findOne({ email });
-
-  if (!user) {
-    user = new User({
-      email,
-      userName: name || email.split("@")[0],
-      avatar: avatar || null,
-      oauthProviders: [{ provider, providerId }],
-    });
-  } else {
-    // ensure provider is listed
-    user.userName = user.userName || name || email.split("@")[0];
-    user.avatar = user.avatar || avatar || user.avatar;
-    const hasProv = (user.oauthProviders || []).some(
-      (p) => p.provider === provider && p.providerId === providerId
-    );
-    if (!hasProv) {
-      user.oauthProviders = user.oauthProviders || [];
-      user.oauthProviders.push({ provider, providerId });
-    }
-  }
-
-  await user.save();
-  return user;
-}
-
-/* ============================
-   GOOGLE: exchange code -> user
-   ============================ */
-router.post("/google", async (req, res) => {
+/* ==========================
+   SEND EMAIL USING BREVO API
+   ========================== */
+async function sendOTPEmail(to, otp) {
   try {
-    const { code, redirect_uri } = req.body;
-    if (!code || !redirect_uri) return res.status(400).json({ message: "code and redirect_uri are required" });
+    const response = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: { email: process.env.EMAIL_FROM },
+        to: [{ email: to }],
+        subject: "Your OTP Code",
+        htmlContent: `<p>Your OTP is: <b>${otp}</b></p>`,
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    // Exchange code for tokens
-    const tokenResp = await axios.post("https://oauth2.googleapis.com/token", new URLSearchParams({
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri,
-      grant_type: "authorization_code"
-    }).toString(), {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" }
-    });
-
-    const { access_token, id_token } = tokenResp.data;
-    if (!access_token && !id_token) throw new Error("Failed to get tokens from Google");
-
-    // Get user info (use id_token or userinfo)
-    // id_token is a JWT that also contains email; we fetch userinfo to be safe.
-    const userInfoResp = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: { Authorization: `Bearer ${access_token || id_token}` }
-    });
-
-    const { email, name, picture, sub: providerId } = userInfoResp.data;
-    if (!email) return res.status(400).json({ message: "Google account did not provide email" });
-
-    const user = await findOrCreateUser({
-      email,
-      name,
-      provider: "google",
-      providerId,
-      avatar: picture
-    });
-
-    const token = signToken(user._id);
-    res.json({ message: "Login success", token, user: { _id: user._id, email: user.email, userName: user.userName } });
-
+    console.log("📩 Email Sent:", response.data);
+    return true;
   } catch (err) {
-    console.error("Google OAuth error:", err.response?.data || err.message || err);
-    res.status(500).json({ message: "Google OAuth failed", error: err.response?.data || err.message });
+    console.error("Email Error:", err.response?.data || err);
+    return false;
+  }
+}
+
+/* ==========================
+   SEND OTP
+   ========================== */
+router.post("/send-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email)
+      return res.status(400).json({ message: "Email is required" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+
+    let user = await User.findOne({ email });
+    if (!user) user = new User({ email });
+
+    user.otp = otp.toString();
+    user.otpExpiry = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    const sent = await sendOTPEmail(email, otp);
+    if (!sent) return res.status(500).json({ message: "Failed to send OTP" });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("Send OTP Error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ============================
-   GITHUB: exchange code -> user
-   ============================ */
-router.post("/github", async (req, res) => {
+/* ==========================
+   VERIFY OTP
+   ========================== */
+router.post("/verify-otp", async (req, res) => {
   try {
-    const { code, redirect_uri } = req.body;
-    if (!code || !redirect_uri) return res.status(400).json({ message: "code and redirect_uri are required" });
+    const { email, otp, password } = req.body;
 
-    // Exchange code for access token
-    const tokenResp = await axios.post("https://github.com/login/oauth/access_token", {
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
-      code,
-      redirect_uri
-    }, {
-      headers: { Accept: "application/json" }
+    if (!email || !otp || !password)
+      return res.status(400).json({ message: "Missing fields" });
+
+    const user = await User.findOne({ email });
+
+    if (!user || user.otp !== otp || user.otpExpiry < Date.now())
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+
+    user.passwordHash = await bcrypt.hash(password, 10);
+    user.otp = null;
+    user.otpExpiry = null;
+
+    await user.save();
+
+    res.json({ message: "Password set successfully" });
+  } catch (error) {
+    console.error("Verify OTP Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* ==========================
+   LOGIN
+   ========================== */
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password)
+      return res.status(400).json({ message: "Email & password required" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid)
+      return res.status(400).json({ message: "Invalid credentials" });
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
     });
 
-    const { access_token } = tokenResp.data;
-    if (!access_token) throw new Error("Failed to get GitHub access_token");
-
-    // Get GitHub user
-    const ghUserResp = await axios.get("https://api.github.com/user", {
-      headers: { Authorization: `token ${access_token}`, Accept: "application/vnd.github.v3+json" }
+    res.json({
+      message: "Login successful",
+      token,
+      user: { id: user._id, email: user.email },
     });
-
-    const { id: providerId, avatar_url: avatar, login: ghLogin, name } = ghUserResp.data;
-
-    // GitHub may not return email in /user, so fetch emails
-    let email = null;
-    const emailResp = await axios.get("https://api.github.com/user/emails", {
-      headers: { Authorization: `token ${access_token}`, Accept: "application/vnd.github.v3+json" }
-    });
-
-    if (Array.isArray(emailResp.data)) {
-      // Find primary verified email
-      const primary = emailResp.data.find(e => e.primary && e.verified) || emailResp.data.find(e => e.verified) || emailResp.data[0];
-      email = primary?.email;
-    }
-
-    if (!email) {
-      // If still no email, create a pseudo email (not recommended). Better to ask user for email on frontend.
-      return res.status(400).json({ message: "GitHub account has no public email. Please enable email or use another login." });
-    }
-
-    const user = await findOrCreateUser({
-      email,
-      name: name || ghLogin,
-      provider: "github",
-      providerId: String(providerId),
-      avatar
-    });
-
-    const token = signToken(user._id);
-    res.json({ message: "Login success", token, user: { _id: user._id, email: user.email, userName: user.userName } });
-
-  } catch (err) {
-    console.error("GitHub OAuth error:", err.response?.data || err.message || err);
-    res.status(500).json({ message: "GitHub OAuth failed", error: err.response?.data || err.message });
+  } catch (error) {
+    console.error("Login Error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
