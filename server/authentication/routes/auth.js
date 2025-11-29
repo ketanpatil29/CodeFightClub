@@ -2,18 +2,18 @@
 import express from "express";
 import axios from "axios";
 import jwt from "jsonwebtoken";
-import User from "../models/users.js"; // your mongoose User model
+import User from "../models/users.js";
 
 const router = express.Router();
 
-// Helper: sign JWT
+// Helper: Sign JWT
 function signToken(userId) {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
 
-// Helper: upsert user by email and provider info
+// Helper: Upsert user in DB
 async function findOrCreateUser({ email, name, provider, providerId, avatar }) {
-  if (!email) throw new Error("Email is required from provider");
+  if (!email) throw new Error("Email is required");
 
   let user = await User.findOne({ email });
 
@@ -27,11 +27,10 @@ async function findOrCreateUser({ email, name, provider, providerId, avatar }) {
   } else {
     user.userName = user.userName || name || email.split("@")[0];
     user.avatar = user.avatar || avatar || user.avatar;
-    const hasProv = (user.oauthProviders || []).some(
-      (p) => p.provider === provider && p.providerId === providerId
+    const exists = user.oauthProviders.some(
+      p => p.provider === provider && p.providerId === providerId
     );
-    if (!hasProv) {
-      user.oauthProviders = user.oauthProviders || [];
+    if (!exists) {
       user.oauthProviders.push({ provider, providerId });
     }
   }
@@ -40,11 +39,9 @@ async function findOrCreateUser({ email, name, provider, providerId, avatar }) {
   return user;
 }
 
-/* ----------------------------
-   Step 1: Redirect endpoints
-   ---------------------------- */
-
-// Redirect to Google consent
+/* --------------------------------------
+   STEP 1: REDIRECT TO GOOGLE LOGIN PAGE
+   -------------------------------------- */
 router.get("/google", (req, res) => {
   const root = "https://accounts.google.com/o/oauth2/v2/auth";
   const params = new URLSearchParams({
@@ -58,26 +55,13 @@ router.get("/google", (req, res) => {
   res.redirect(`${root}?${params.toString()}`);
 });
 
-// Redirect to GitHub consent
-router.get("/github", (req, res) => {
-  const root = "https://github.com/login/oauth/authorize";
-  const params = new URLSearchParams({
-    client_id: process.env.GITHUB_CLIENT_ID,
-    redirect_uri: `${process.env.BACKEND_URL}/auth/github/callback`,
-    scope: "user:email",
-    allow_signup: "true"
-  });
-  res.redirect(`${root}?${params.toString()}`);
-});
-
-/* ----------------------------
-   Step 2: Callback endpoints
-   ---------------------------- */
-
-// Google callback
+/* --------------------------------------
+   STEP 2: GOOGLE CALLBACK
+   -------------------------------------- */
 router.get("/google/callback", async (req, res) => {
   try {
     const { code } = req.query;
+
     if (!code) return res.status(400).send("Missing code");
 
     // Exchange code for tokens
@@ -93,18 +77,19 @@ router.get("/google/callback", async (req, res) => {
       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
     );
 
-    const { access_token } = tokenResp.data;
-    if (!access_token) throw new Error("No access token from Google");
+    const access_token = tokenResp.data.access_token;
+    if (!access_token) throw new Error("No access token");
 
-    // Fetch user info
-    const userInfo = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: { Authorization: `Bearer ${access_token}` }
-    });
+    // Fetch profile
+    const userInfo = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      { headers: { Authorization: `Bearer ${access_token}` } }
+    );
 
     const { email, name, picture, sub: providerId } = userInfo.data;
-    if (!email) return res.status(400).send("Google account has no email");
 
-    // Upsert user
+    if (!email) return res.status(400).send("No Google email");
+
     const user = await findOrCreateUser({
       email,
       name,
@@ -113,86 +98,108 @@ router.get("/google/callback", async (req, res) => {
       avatar: picture
     });
 
-    // issue jwt
     const token = signToken(user._id);
 
-    // redirect to frontend with token
-    const front = process.env.FRONTEND_URL.replace(/\/$/, "");
+    // ⭐ ADD LOG HERE
+    console.log(`🔐 OAuth Login: ${email} logged in via Google`);
+
+    // Redirect to frontend
     const qp = new URLSearchParams({
       token,
       email: user.email,
       username: user.userName || ""
     });
-    return res.redirect(`${front}/oauth-callback?${qp.toString()}`);
+
+    return res.redirect(
+      `${process.env.FRONTEND_URL.replace(/\/$/, "")}/oauth-callback?${qp.toString()}`
+    );
+
   } catch (err) {
-    console.error("Google callback error:", err.response?.data || err.message || err);
+    console.error("Google OAuth Error:", err.response?.data || err.message);
     return res.status(500).send("Google OAuth failed");
   }
 });
 
-// GitHub callback
+/* --------------------------------------
+   GITHUB REDIRECT
+   -------------------------------------- */
+router.get("/github", (req, res) => {
+  const root = "https://github.com/login/oauth/authorize";
+  const params = new URLSearchParams({
+    client_id: process.env.GITHUB_CLIENT_ID,
+    redirect_uri: `${process.env.BACKEND_URL}/auth/github/callback`,
+    scope: "user:email"
+  });
+  res.redirect(`${root}?${params.toString()}`);
+});
+
+/* --------------------------------------
+   GITHUB CALLBACK
+   -------------------------------------- */
 router.get("/github/callback", async (req, res) => {
   try {
     const { code } = req.query;
     if (!code) return res.status(400).send("Missing code");
 
-    // Exchange code for access token
+    // Exchange code for token
     const tokenResp = await axios.post(
       "https://github.com/login/oauth/access_token",
       {
         client_id: process.env.GITHUB_CLIENT_ID,
         client_secret: process.env.GITHUB_CLIENT_SECRET,
         code,
-        redirect_uri: `${process.env.BACKEND_URL}/auth/github/callback`
       },
       { headers: { Accept: "application/json" } }
     );
 
     const { access_token } = tokenResp.data;
-    if (!access_token) throw new Error("No access token from GitHub");
+    if (!access_token) throw new Error("No GitHub access token");
 
-    // Get GitHub user
-    const ghUserResp = await axios.get("https://api.github.com/user", {
-      headers: { Authorization: `token ${access_token}`, Accept: "application/vnd.github.v3+json" }
+    // Fetch GitHub user
+    const ghUser = await axios.get("https://api.github.com/user", {
+      headers: { Authorization: `token ${access_token}` }
     });
 
-    const { id: providerId, avatar_url: avatar, login: ghLogin, name } = ghUserResp.data;
+    const { id: providerId, avatar_url, login, name } = ghUser.data;
 
-    // Get email list
-    let email = null;
-    const emailsResp = await axios.get("https://api.github.com/user/emails", {
-      headers: { Authorization: `token ${access_token}`, Accept: "application/vnd.github.v3+json" }
+    // Get emails
+    const emailResp = await axios.get("https://api.github.com/user/emails", {
+      headers: { Authorization: `token ${access_token}` }
     });
 
-    if (Array.isArray(emailsResp.data)) {
-      const primary = emailsResp.data.find(e => e.primary && e.verified) || emailsResp.data.find(e => e.verified) || emailsResp.data[0];
-      email = primary?.email;
-    }
+    const primary =
+      emailResp.data.find(e => e.primary && e.verified) ||
+      emailResp.data.find(e => e.verified) ||
+      emailResp.data[0];
 
-    if (!email) {
-      return res.status(400).send("GitHub account has no public/verified email");
-    }
+    const email = primary?.email;
+    if (!email) return res.status(400).send("GitHub email not found");
 
-    // Upsert user
     const user = await findOrCreateUser({
       email,
-      name: name || ghLogin,
+      name: name || login,
       provider: "github",
       providerId: String(providerId),
-      avatar
+      avatar: avatar_url
     });
 
     const token = signToken(user._id);
 
-    const front = process.env.FRONTEND_URL.replace(/\/$/, "");
+    // ⭐ ADD LOG HERE
+    console.log(`🔐 OAuth Login: ${email} logged in via GitHub`);
+
     const qp = new URLSearchParams({
       token,
       email: user.email,
       username: user.userName || ""
     });
-    return res.redirect(`${front}/oauth-callback?${qp.toString()}`);
+
+    return res.redirect(
+      `${process.env.FRONTEND_URL.replace(/\/$/, "")}/oauth-callback?${qp.toString()}`
+    );
+
   } catch (err) {
-    console.error("GitHub callback error:", err.response?.data || err.message || err);
+    console.error("GitHub OAuth Error:", err.response?.data || err.message);
     return res.status(500).send("GitHub OAuth failed");
   }
 });
