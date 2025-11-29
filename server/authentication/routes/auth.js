@@ -71,7 +71,7 @@ router.get("/google/callback", async (req, res) => {
         code,
         client_id: process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: `${process.env.BACKEND_URL}/auth/google/callback`,
+        redirect_uri: "https://codefightclub.onrender.com/auth/google/callback",
         grant_type: "authorization_code"
       }).toString(),
       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
@@ -110,9 +110,7 @@ router.get("/google/callback", async (req, res) => {
       username: user.userName || ""
     });
 
-    return res.redirect(
-      `${process.env.FRONTEND_URL.replace(/\/$/, "")}/oauth-callback?${qp.toString()}`
-    );
+    return res.redirect(`https://codefightclub.vercel.app/oauth-callback?${qp.toString()}`);
 
   } catch (err) {
     console.error("Google OAuth Error:", err.response?.data || err.message);
