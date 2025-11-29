@@ -11,16 +11,13 @@ const userSchema = new mongoose.Schema({
   otpExpiry: { type: Date },
 
   // OAuth fields
-  providers: {
-    type: [String],   // ["google", "github"]
-    default: [],
-  },
-
   googleId: { type: String },
   githubId: { type: String },
+
   name: { type: String },
   avatar: { type: String },
 });
 
+// ESM export
 const User = mongoose.model("User", userSchema);
 export default User;
