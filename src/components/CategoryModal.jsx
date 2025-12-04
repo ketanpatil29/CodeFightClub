@@ -8,22 +8,16 @@ const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, select
   if (!isOpen) return null;
 
   const handleFindMatch = () => {
+  if (!socket || !socket.connected) return alert("Socket not ready!");
+
   if (!selectedCategory) return alert("Please select a category!");
 
   const userId = localStorage.getItem("userId");
   const username = localStorage.getItem("userName");
 
-  console.log("Sending user to backend:", { userId, username, category: selectedCategory });
-
-  socket.emit("findMatch", { 
-    userId, 
-    username, 
-    category: selectedCategory
-  });
-
+  socket.emit("findMatch", { userId, username, category: selectedCategory });
   onStartMatch();
 };
-
 
   const categories = [
     { 
