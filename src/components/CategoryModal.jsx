@@ -8,18 +8,21 @@ const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, select
   if (!isOpen) return null;
 
   const handleFindMatch = () => {
-    if (!selectedCategory) return alert("Please select a category!");
+  if (!selectedCategory) return alert("Please select a category!");
 
-    const user = {
-      _id: localStorage.getItem("userId"),
-      userName: localStorage.getItem("userName"),
-      email: localStorage.getItem("userEmail")
-    };
+  const userId = localStorage.getItem("userId");
+  const username = localStorage.getItem("userName");
 
-    console.log("Sending user to backend:", user);
-    socket.emit("joinCategory", { category: selectedCategory, user }); // <-- FIXED
-    onStartMatch();
-  };
+  console.log("Sending user to backend:", { userId, username, category: selectedCategory });
+
+  socket.emit("findMatch", { 
+    userId, 
+    username, 
+    category: selectedCategory
+  });
+
+  onStartMatch();
+};
 
 
   const categories = [
