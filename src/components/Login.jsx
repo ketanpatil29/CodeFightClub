@@ -1,52 +1,50 @@
 // src/components/Login.jsx
 import React from "react";
+import { GoogleLogin } from "@react-oauth/google";
 
 const Login = ({ onClose, setToken, setUsername }) => {
-  const handleGoogleLogin = () => {
-    /* global google */
-    google.accounts.id.initialize({
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, // use Vite env variable
-      callback: async (response) => {
-        try {
-          // send token to backend
-          const res = await fetch(`${import.meta.env.VITE_API_BASE}/google`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: response.credential }),
-          });
-          const data = await res.json();
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      const token = credentialResponse.credential;
 
-          if (data.user) {
-            localStorage.setItem("token", response.credential);
-            localStorage.setItem("userId", data.user._id);
-            localStorage.setItem("userName", data.user.name);
-            localStorage.setItem("userEmail", data.user.email);
+      // send token to backend
+      const res = await fetch(`${import.meta.env.VITE_API_BASE}/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
 
-            setToken(response.credential);
-            setUsername(data.user.name);
+      const data = await res.json();
 
-            if (onClose) onClose();
-            console.log(`[LOGIN] ${data.user.name} connected`);
-          }
-        } catch (err) {
-          console.error("Google login failed", err);
-        }
-      },
-    });
+      if (data.user) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("userId", data.user._id);
+        localStorage.setItem("userName", data.user.name);
+        localStorage.setItem("userEmail", data.user.email);
 
-    google.accounts.id.prompt();
+        setToken(token);
+        setUsername(data.user.name);
+
+        if (onClose) onClose();
+        console.log(`[LOGIN] ${data.user.name} connected`);
+      }
+    } catch (err) {
+      console.error("Google login failed", err);
+    }
+  };
+
+  const handleGoogleError = () => {
+    console.error("Google login failed");
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-8">
         <h1 className="font-bold text-2xl mb-6 text-center">Login</h1>
-        <button
-          onClick={handleGoogleLogin}
-          className="bg-red-500 text-white rounded-lg py-3 font-semibold w-full hover:scale-105 transition"
-        >
-          Login with Google
-        </button>
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={handleGoogleError}
+        />
       </div>
     </div>
   );
