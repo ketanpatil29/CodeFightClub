@@ -8,7 +8,8 @@ const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, select
   if (!isOpen) return null;
 
   const handleFindMatch = () => {
-  if (!socket || !socket.connected) return alert("Socket not ready!");
+  if (!socket) return alert("Socket not ready yet!");
+  if (!selectedCategory) return alert("Please select a category!");
 
   if (!selectedCategory) return alert("Please select a category!");
 
