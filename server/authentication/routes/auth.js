@@ -26,21 +26,30 @@ router.post("/google", async (req, res) => {
     console.log("Google Login:", { email, name, googleId });
 
     // Check if user already exists
-    let user = await User.findOne({ googleId });
+    // Check if user exists by googleId or email
+let user = await User.findOne({
+  $or: [{ googleId }, { email }]
+});
 
-    // If new user → create
-    if (!user) {
-      user = await User.create({
-        email,
-        name,
-        googleId,
-        avatar: picture || null,
-      });
+if (!user) {
+  // New user → create
+  user = await User.create({
+    email,
+    name,
+    googleId,
+    avatar: picture || null,
+  });
 
-      console.log(`[NEW USER] ${name} (${email}) registered`);
-    } else {
-      console.log(`[LOGIN] ${name} (${email}) logged in`);
-    }
+  console.log(`[NEW USER] ${name} (${email}) registered`);
+} else {
+  // If user exists but no googleId, update it
+  if (!user.googleId) {
+    user.googleId = googleId;
+    await user.save();
+  }
+
+  console.log(`[LOGIN] ${name} (${email}) logged in`);
+}
 
     return res.json({
       success: true,
