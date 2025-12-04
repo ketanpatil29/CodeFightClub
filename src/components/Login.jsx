@@ -5,11 +5,11 @@ const Login = ({ onClose, setToken, setUsername }) => {
   const handleGoogleLogin = () => {
     /* global google */
     google.accounts.id.initialize({
-      client_id: import.meta.env.GOOGLE_CLIENT_ID, // use Vite env variable
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, // use Vite env variable
       callback: async (response) => {
         try {
           // send token to backend
-          const res = await fetch(`${import.meta.env.BACKEND_URL}/google`, {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE}/google`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token: response.credential }),
