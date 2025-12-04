@@ -10,8 +10,7 @@ const socket = io('*', {
 export const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
-  return (
-    <SocketContext.Provider value={socket}>
+  return (    <SocketContext.Provider value={socket}>
       {children}
     </SocketContext.Provider>
   );

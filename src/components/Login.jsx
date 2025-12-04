@@ -33,28 +33,31 @@ const Login = ({ onClose, setToken, setUsername }) => {
   };
 
   const loginUser = async () => {
-    try {
-      const res = await axios.post(`${API_BASE}/auth/login`, {
-        email,
-        password
-      });
+  try {
+    const res = await axios.post(`${API_BASE}/auth/login`, {
+      email,
+      password
+    });
 
-      const user = res.data.user;
-      const token = res.data.token;
+    const user = res.data.user;
+    const token = res.data.token;
 
-      localStorage.setItem("userId", user._id);
-      localStorage.setItem("userName", user.userName || user.email);
-      localStorage.setItem("username", user.userName || user.email);
-      localStorage.setItem("userEmail", user.email);
-      localStorage.setItem("token", token);
+    // 🔥 Clear previous user completely
+    localStorage.clear();
 
-      setToken(token);
-      if (setUsername) setUsername(user.userName || user.email);
+    localStorage.setItem("userId", user._id);
+    localStorage.setItem("userName", user.userName || user.email);
+    localStorage.setItem("username", user.userName || user.email);
+    localStorage.setItem("userEmail", user.email);
+    localStorage.setItem("token", token);
 
-      setMessage("Login successful!");
-      setTimeout(() => onClose(), 500);
+    setToken(token);
+    if (setUsername) setUsername(user.userName || user.email);
+
+    setMessage("Login successful!");
+    setTimeout(() => onClose(), 500);
     } catch (err) {
-      setMessage(err.response?.data?.message || "Login failed");
+    setMessage(err.response?.data?.message || "Login failed");
     }
   };
 
