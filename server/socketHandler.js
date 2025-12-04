@@ -25,109 +25,83 @@ export default function initSocket(server) {
 
     // Find match
     socket.on("findMatch", async ({ userId, username, category }) => {
-      console.log(`🔍 ${username} looking for match in ${category}`);
+  console.log(`🔍 ${username} looking for match in ${category}`);
 
-      // Check if user abandoned a previous match
-      if (abandonedUsers.has(userId)) {
-        abandonedUsers.delete(userId); // Clear the flag for new search
-      }
+  if (abandonedUsers.has(userId)) abandonedUsers.delete(userId);
 
-      // Remove user from any previous waiting queue
-      Object.keys(waitingUsers).forEach((cat) => {
-        waitingUsers[cat] = waitingUsers[cat]?.filter((u) => u.userId !== userId) || [];
-      });
+  // Remove user from previous waiting queues
+  Object.keys(waitingUsers).forEach(cat => {
+    waitingUsers[cat] = waitingUsers[cat]?.filter(u => u.userId !== userId) || [];
+  });
 
-      // Initialize category queue if needed
-      if (!waitingUsers[category]) {
-        waitingUsers[category] = [];
-      }
+  if (!waitingUsers[category]) waitingUsers[category] = [];
 
-      // Check for waiting opponent (exclude abandoned users)
-      const availableOpponent = waitingUsers[category].find(
-        (u) => u.userId !== userId && !abandonedUsers.has(u.userId)
-      );
+  // Check for waiting opponent
+  const opponent = waitingUsers[category].find(u => u.userId !== userId && !abandonedUsers.has(u.userId));
 
-      if (availableOpponent) {
-        // Match found! Use the opponent's question
-        const roomId = `room_${userId}_${availableOpponent.userId}_${Date.now()}`;
-        const sharedQuestion = availableOpponent.question;
+  // Use verified question immediately
+  const verifiedQuestions = [
+    // paste your verifiedQuestions array from aiQuestion.js
+  ];
+  const randomQuestion = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
 
-        // Remove opponent from waiting
-        waitingUsers[category] = waitingUsers[category].filter(
-          (u) => u.userId !== availableOpponent.userId
-        );
+  if (opponent) {
+    // Match found
+    const roomId = `room_${userId}_${opponent.userId}_${Date.now()}`;
+    activeMatches[roomId] = {
+      user1: { userId, username, socketId: socket.id, status: "solving" },
+      user2: { userId: opponent.userId, username: opponent.username, socketId: opponent.socketId, status: "solving" },
+      question: opponent.question,
+      category,
+      startTime: Date.now(),
+    };
 
-        // Create match with shared question
-        activeMatches[roomId] = {
-          user1: { userId, username, socketId: socket.id, status: "solving" },
-          user2: {
-            userId: availableOpponent.userId,
-            username: availableOpponent.username,
-            socketId: availableOpponent.socketId,
-            status: "solving",
-          },
-          question: sharedQuestion,
-          category,
-          startTime: Date.now(),
-        };
+    userToRoom[userId] = roomId;
+    userToRoom[opponent.userId] = roomId;
 
-        userToRoom[userId] = roomId;
-        userToRoom[availableOpponent.userId] = roomId;
+    socket.join(roomId);
+    io.sockets.sockets.get(opponent.socketId)?.join(roomId);
 
-        // Join room
-        socket.join(roomId);
-        io.sockets.sockets.get(availableOpponent.socketId)?.join(roomId);
-
-        console.log(`✅ Match made: ${username} vs ${availableOpponent.username}`);
-        console.log(`📝 Question: ${sharedQuestion.title}`);
-
-        // Notify both users with the SAME question
-        io.to(socket.id).emit("matchFound", {
-          roomId,
-          opponent: availableOpponent.username,
-          opponentId: availableOpponent.userId,
-          yourUsername: username,
-          question: sharedQuestion,
-        });
-
-        io.to(availableOpponent.socketId).emit("matchFound", {
-          roomId,
-          opponent: username,
-          opponentId: userId,
-          yourUsername: availableOpponent.username,
-          question: sharedQuestion,
-        });
-      } else {
-        // No opponent yet - generate question and wait
-        try {
-          console.log(`📝 Generating question for ${username}...`);
-          const response = await axios.post(`${BACKEND_URL}/ai/generate-question`, {
-            category: category || "DSA"
-          });
-          
-          const question = response.data.question;
-          console.log(`✅ Question ready: ${question.title}`);
-
-          // Add to waiting queue WITH the question
-          waitingUsers[category].push({ 
-            userId, 
-            username, 
-            socketId: socket.id,
-            question: question 
-          });
-
-          socket.emit("waiting", { 
-            message: "Looking for opponent...",
-            question: question 
-          });
-
-          console.log(`⏳ ${username} added to ${category} queue with question`);
-        } catch (error) {
-          console.error("Error generating question:", error);
-          socket.emit("error", { message: "Failed to generate question" });
-        }
-      }
+    io.to(socket.id).emit("matchFound", {
+      roomId,
+      opponent: opponent.username,
+      opponentId: opponent.userId,
+      yourUsername: username,
+      question: opponent.question
     });
+
+    io.to(opponent.socketId).emit("matchFound", {
+      roomId,
+      opponent: username,
+      opponentId: userId,
+      yourUsername: opponent.username,
+      question: opponent.question
+    });
+
+    console.log(`✅ Match made: ${username} vs ${opponent.username}`);
+
+  } else {
+    // No opponent — add user to waiting queue instantly with verified question
+    waitingUsers[category].push({ userId, username, socketId: socket.id, question: randomQuestion });
+
+    socket.emit("waiting", { message: "Looking for opponent...", question: randomQuestion });
+
+    console.log(`⏳ ${username} added to ${category} queue`);
+
+    // Optional: fetch AI question in background for next users
+    (async () => {
+      try {
+        if (process.env.GEMINI_API_KEY) {
+          const aiResp = await axios.post(`${BACKEND_URL}/ai/generate-question`, { category });
+          const aiQuestion = aiResp.data.question;
+          console.log(`📝 AI background question ready: ${aiQuestion.title}`);
+        }
+      } catch (err) {
+        console.log("⚠️ AI background fetch failed", err.message);
+      }
+    })();
+  }
+});
 
     // Submit answer
     socket.on("submitAnswer", ({ userId, roomId, success }) => {
