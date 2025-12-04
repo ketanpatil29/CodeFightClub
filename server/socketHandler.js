@@ -18,35 +18,30 @@ export default function initSocket(server) {
     },
   });
 
-  const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3000";
+  const BACKEND_URL = process.env.BACKEND_URL;
 
   io.on("connection", (socket) => {
     console.log(`✅ User connected: ${socket.id}`);
 
     // Find match
-    socket.on("findMatch", async ({ userId, username, category }) => {
+   socket.on("findMatch", async ({ userId, username, category }) => {
   console.log(`🔍 ${username} looking for match in ${category}`);
 
-  if (abandonedUsers.has(userId)) abandonedUsers.delete(userId);
-
-  // Remove user from previous waiting queues
+  // Clean up abandoned / previous waiting users
+  abandonedUsers.delete(userId);
   Object.keys(waitingUsers).forEach(cat => {
     waitingUsers[cat] = waitingUsers[cat]?.filter(u => u.userId !== userId) || [];
   });
-
   if (!waitingUsers[category]) waitingUsers[category] = [];
 
-  // Check for waiting opponent
+  // Check for opponent
   const opponent = waitingUsers[category].find(u => u.userId !== userId && !abandonedUsers.has(u.userId));
 
   // Use verified question immediately
-  const verifiedQuestions = [
-    // paste your verifiedQuestions array from aiQuestion.js
-  ];
   const randomQuestion = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
 
   if (opponent) {
-    // Match found
+    // Match found → emit immediately
     const roomId = `room_${userId}_${opponent.userId}_${Date.now()}`;
     activeMatches[roomId] = {
       user1: { userId, username, socketId: socket.id, status: "solving" },
@@ -55,46 +50,27 @@ export default function initSocket(server) {
       category,
       startTime: Date.now(),
     };
-
     userToRoom[userId] = roomId;
     userToRoom[opponent.userId] = roomId;
 
     socket.join(roomId);
     io.sockets.sockets.get(opponent.socketId)?.join(roomId);
 
-    io.to(socket.id).emit("matchFound", {
-      roomId,
-      opponent: opponent.username,
-      opponentId: opponent.userId,
-      yourUsername: username,
-      question: opponent.question
-    });
-
-    io.to(opponent.socketId).emit("matchFound", {
-      roomId,
-      opponent: username,
-      opponentId: userId,
-      yourUsername: opponent.username,
-      question: opponent.question
-    });
-
-    console.log(`✅ Match made: ${username} vs ${opponent.username}`);
+    io.to(socket.id).emit("matchFound", { roomId, opponent: opponent.username, opponentId: opponent.userId, yourUsername: username, question: opponent.question });
+    io.to(opponent.socketId).emit("matchFound", { roomId, opponent: username, opponentId: userId, yourUsername: opponent.username, question: opponent.question });
 
   } else {
-    // No opponent — add user to waiting queue instantly with verified question
+    // No opponent → emit waiting instantly with verified question
     waitingUsers[category].push({ userId, username, socketId: socket.id, question: randomQuestion });
-
     socket.emit("waiting", { message: "Looking for opponent...", question: randomQuestion });
 
-    console.log(`⏳ ${username} added to ${category} queue`);
-
-    // Optional: fetch AI question in background for next users
+    // Now fetch AI question in the background (non-blocking)
     (async () => {
       try {
         if (process.env.GEMINI_API_KEY) {
           const aiResp = await axios.post(`${BACKEND_URL}/ai/generate-question`, { category });
           const aiQuestion = aiResp.data.question;
-          console.log(`📝 AI background question ready: ${aiQuestion.title}`);
+          console.log("📝 AI background question ready:", aiQuestion.title);
         }
       } catch (err) {
         console.log("⚠️ AI background fetch failed", err.message);
