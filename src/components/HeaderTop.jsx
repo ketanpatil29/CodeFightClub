@@ -2,14 +2,22 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-const HeaderTop = ({ token, setToken, setLoginOpen }) => {
+const HeaderTop = ({ token, user, setToken, setUser, setLoginOpen }) => {
   const navigate = useNavigate();
+
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
 
   // On mount, check if user is logged in
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
-    if (savedToken) setToken(savedToken);
-  }, [setToken]);
+    const savedUser = localStorage.getItem("user");
+
+    if (savedToken && savedUser) {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
 
   const handleLoginClick = () => {
     setLoginOpen(true);
@@ -55,25 +63,33 @@ const HeaderTop = ({ token, setToken, setLoginOpen }) => {
               {item}
             </motion.a>
           ))}
-          {token ? (
-            <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              transition={{ type: "spring", stiffness: 120 }}
-              onClick={handleLogout}
-              className="ml-4 text-red-600 hover:text-red-800 font-medium transition-colors"
-            >
-              LOGOUT
-            </motion.button>
+          {user ? (
+            <div className="flex items-center gap-3 ml-4">
+              <img
+                src={user.avatar}
+                alt="profile"
+                className="w-8 h-8 rounded-full border border-gray-500"
+              />
+              <span className="text-gray-300 text-sm">{user.email}</span>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                onClick={handleLogout}
+                className="text-red-600 ml-3 hover:text-red-800"
+              >
+                LOGOUT
+              </motion.button>
+            </div>
           ) : (
             <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              transition={{ type: "spring", stiffness: 120 }}
+              whileHover={{ scale: 1.05 }}
               onClick={handleLoginClick}
-              className="text-pink-700 font-medium hover:text-fuchsia-500 transition-colors"
+              className="text-pink-700 hover:text-fuchsia-500"
             >
               LOGIN
             </motion.button>
           )}
+
         </div>
       </div>
     </motion.nav>

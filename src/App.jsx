@@ -118,6 +118,7 @@ function App() {
         {window.location.pathname !== "/arena" && (
           <HeaderTop 
             token={token} 
+            user={user}
             setLoginOpen={setShowLogin} 
             setToken={setToken}
             setUsername={setUsername}
