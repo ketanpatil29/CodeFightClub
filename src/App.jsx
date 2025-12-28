@@ -26,8 +26,10 @@ function App() {
   const socket = useSocket();
   const navigate = useNavigate();
 
-  const [token, setToken] = useState(localStorage.getItem("token") || null);
-  const [username, setUsername] = useState(localStorage.getItem("username") || "User");
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [user, setUser] = useState(
+    JSON.parse(localStorage.getItem("user"))
+  );
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -46,8 +48,8 @@ function App() {
     setOpponent("");
 
     // Emit findMatch - backend will generate question
-    socket.emit("findMatch", { 
-      userId: token, 
+    socket.emit("findMatch", {
+      userId: token,
       username: username,
       category: selectedCategory || "DSA"
     });
@@ -83,10 +85,10 @@ function App() {
         question: data.question, // Question comes from backend now!
         opponent: data.opponent,
         opponentId: data.opponentId,
-        user: { 
-          id: token, 
+        user: {
+          id: token,
           username: username,
-          token: token 
+          token: token
         }
       }));
 
@@ -116,10 +118,9 @@ function App() {
     <>
       <div className="[font-family:'Space_Grotesk',sans-serif]">
         {window.location.pathname !== "/arena" && (
-          <HeaderTop 
-            token={token} 
+          <HeaderTop
             user={user}
-            setLoginOpen={setShowLogin} 
+            setLoginOpen={setShowLogin}
             setToken={setToken}
             setUsername={setUsername}
           />
@@ -156,11 +157,11 @@ function App() {
           <Route
             path="/arena"
             element={
-              <ArenaWrapper 
-                onExit={() => { 
-                  localStorage.removeItem("arenaData"); 
-                  navigate("/"); 
-                }} 
+              <ArenaWrapper
+                onExit={() => {
+                  localStorage.removeItem("arenaData");
+                  navigate("/");
+                }}
               />
             }
           />
@@ -168,10 +169,10 @@ function App() {
       </div>
 
       {showLogin && (
-        <Login 
-          onClose={() => setShowLogin(false)} 
+        <Login
+          onClose={() => setShowLogin(false)}
           setToken={setToken}
-          setUsername={setUsername}
+          setUser={setUser}
         />
       )}
     </>
@@ -201,11 +202,11 @@ function ArenaWrapper({ onExit }) {
   }
 
   return (
-    <Arena 
-      user={user} 
+    <Arena
+      user={user}
       opponentName={opponent}
       opponentId={opponentId}
-      question={question} 
+      question={question}
       onExit={onExit}
     />
   );
