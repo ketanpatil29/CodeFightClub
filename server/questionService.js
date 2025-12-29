@@ -1,53 +1,44 @@
+import verifiedQuestions from "./verifiedQuestion";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// ✅ VERIFIED QUESTIONS LIVE HERE
-export const verifiedQuestions = [
-  {
-    title: "Two Sum",
-    description: "Given an array of integers nums and an integer target...",
-    testCases: [
-      { input: [[2,7,11,15], 9], expectedOutput: [0,1] }
-    ]
-  },
-  {
-    title: "Count Occurrences",
-    description: "Count target in array",
-    testCases: [
-      { input: [[1,2,2,3], 2], expectedOutput: 2 }
-    ]
-  }
-];
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+const genAI = process.env.GEMINI_API_KEY.js
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 
 export async function getQuestion(category = "DSA") {
-  // 95% verified (FAST)
-  if (Math.random() < 0.95 || !process.env.GEMINI_API_KEY) {
-    return verifiedQuestions[
-      Math.floor(Math.random() * verifiedQuestions.length)
-    ];
+  // STEP 1: instant fallback
+  const safeQuestion =
+    verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
+
+  // STEP 2: mostly return verified
+  if (!genAI || Math.random() > 0.05) {
+    return safeQuestion;
   }
 
-  // 5% AI
+  // STEP 3: AI attempt (non-blocking safe)
   try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+
     const prompt = `
-Return ONLY JSON coding problem:
+Generate a simple coding question in JSON:
 {
-  "title": "",
-  "description": "",
-  "testCases": [{ "input": [], "expectedOutput": null }]
+  "title": "...",
+  "description": "...",
+  "testCases": [{ "input": [...], "expectedOutput": ... }]
 }`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Bad AI");
+    const result = await Promise.race([
+      model.generateContent(prompt),
+      new Promise((_, r) => setTimeout(() => r("timeout"), 4000))
+    ]);
 
-    return JSON.parse(match[0]);
-  } catch {
-    return verifiedQuestions[
-      Math.floor(Math.random() * verifiedQuestions.length)
-    ];
+    const text = result?.response?.text();
+    const parsed = JSON.parse(text);
+
+    if (parsed?.testCases) return parsed;
+  } catch (err) {
+    console.log("⚠️ AI failed, using verified");
   }
+
+  return safeQuestion;
 }
