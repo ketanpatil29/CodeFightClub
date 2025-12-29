@@ -49,9 +49,9 @@ function App() {
 
     // Emit findMatch - backend will generate question
     socket.emit("findMatch", {
-      userId: token,
-      username: username,
-      category: selectedCategory || "DSA"
+      userId: user?.id,
+      username: user?.name,
+      category: selectedCategory || "DSA",
     });
   };
 
@@ -86,9 +86,9 @@ function App() {
         opponent: data.opponent,
         opponentId: data.opponentId,
         user: {
-          id: token,
-          username: username,
-          token: token
+          id: user.id,
+          name: user.name,
+          token
         }
       }));
 
@@ -112,7 +112,7 @@ function App() {
       socket.off("matchFound", handleMatchFound);
       socket.off("waiting", handleWaiting);
     };
-  }, [socket, token, username]);
+  }, [socket, token, user]);
 
   return (
     <>
@@ -122,7 +122,7 @@ function App() {
             user={user}
             setLoginOpen={setShowLogin}
             setToken={setToken}
-            setUsername={setUsername}
+            setUser={setUser}
           />
         )}
 
