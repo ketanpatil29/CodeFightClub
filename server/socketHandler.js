@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import dotenv from "dotenv";
-import { getQuestion } from "./services/questionService.js";
+import { getQuestion } from "./questionService.js";
 
 dotenv.config();
 
