@@ -1,4 +1,3 @@
-// src/context/MatchContext.jsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
@@ -30,14 +29,21 @@ export const SocketProvider = ({ children }) => {
     };
   }, []);
 
+  // ✅ Safe function to find match
+  const findMatch = (userId, username, category) => {
+    if (!socket) return;
+    if (!userId || !username || !category) {
+      console.warn("⚠️ Missing data for findMatch", { userId, username, category });
+      return;
+    }
+    socket.emit("findMatch", { userId, username, category });
+  };
+
   return (
-    <SocketContext.Provider value={socket}>
+    <SocketContext.Provider value={{ socket, findMatch }}>
       {children}
     </SocketContext.Provider>
   );
 };
 
-// ✅ THIS EXPORT IS WHAT YOU WERE MISSING
-export const useSocket = () => {
-  return useContext(SocketContext);
-};
+export const useSocket = () => useContext(SocketContext);
