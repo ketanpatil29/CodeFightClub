@@ -1,31 +1,15 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 
-const HeaderTop = ({ token, user, setToken, setUser, setLoginOpen }) => {
+const HeaderTop = ({ user, setToken, setUser, setLoginOpen }) => {
   const navigate = useNavigate();
-
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
-
-  // On mount, check if user is logged in
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
-
-  const handleLoginClick = () => {
-    setLoginOpen(true);
-  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setToken(null);
+    setUser(null);
   };
 
   const navItems = ["HOME", "HOW IT WORKS?", "CATEGORIES", "LEADERBOARD"];
@@ -40,10 +24,7 @@ const HeaderTop = ({ token, user, setToken, setUser, setLoginOpen }) => {
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <motion.h1
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 120 }}
-          className="font-sans font-bold italic text-2xl md:text-2xl cursor-pointer"
+          className="font-bold italic text-2xl cursor-pointer"
           onClick={() => navigate("/")}
         >
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-pink-600">
@@ -51,18 +32,16 @@ const HeaderTop = ({ token, user, setToken, setUser, setLoginOpen }) => {
           </span>
         </motion.h1>
 
-        {/* Navigation Links */}
-        <div className="hidden md:flex space-x-8">
-          {navItems.map((item, index) => (
-            <motion.a
-              key={index}
-              whileHover={{ scale: 1.1, y: -2 }}
-              transition={{ type: "spring", stiffness: 120 }}
-              className="text-gray-300 font-medium cursor-pointer hover:text-fuchsia-500 transition-colors"
+        <div className="hidden md:flex space-x-8 items-center">
+          {navItems.map((item) => (
+            <span
+              key={item}
+              className="text-gray-300 hover:text-fuchsia-500 cursor-pointer"
             >
               {item}
-            </motion.a>
+            </span>
           ))}
+
           {user ? (
             <div className="flex items-center gap-3 ml-4">
               <img
@@ -72,24 +51,21 @@ const HeaderTop = ({ token, user, setToken, setUser, setLoginOpen }) => {
               />
               <span className="text-gray-300 text-sm">{user.email}</span>
 
-              <motion.button
-                whileHover={{ scale: 1.05 }}
+              <button
                 onClick={handleLogout}
-                className="text-red-600 ml-3 hover:text-red-800"
+                className="text-red-600 hover:text-red-800 ml-3"
               >
                 LOGOUT
-              </motion.button>
+              </button>
             </div>
           ) : (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              onClick={handleLoginClick}
+            <button
+              onClick={() => setLoginOpen(true)}
               className="text-pink-700 hover:text-fuchsia-500"
             >
               LOGIN
-            </motion.button>
+            </button>
           )}
-
         </div>
       </div>
     </motion.nav>
