@@ -25,60 +25,73 @@ export default function initSocket(server) {
     console.log(`✅ User connected: ${socket.id}`);
 
     // Find match
-   socket.on("findMatch", async ({ userId, username, category }) => {
-  console.log(`🔍 ${username} looking for match in ${category}`);
+    socket.on("findMatch", async ({ userId, username, category }) => {
+      console.log(`🔍 ${username} looking for match in ${category}`);
 
-  // Clean up abandoned / previous waiting users
-  abandonedUsers.delete(userId);
-  Object.keys(waitingUsers).forEach(cat => {
-    waitingUsers[cat] = waitingUsers[cat]?.filter(u => u.userId !== userId) || [];
-  });
-  if (!waitingUsers[category]) waitingUsers[category] = [];
+      abandonedUsers.delete(userId);
 
-  // Check for opponent
-  const opponent = waitingUsers[category].find(u => u.userId !== userId && !abandonedUsers.has(u.userId));
+      Object.keys(waitingUsers).forEach(cat => {
+        waitingUsers[cat] = waitingUsers[cat]?.filter(u => u.userId !== userId) || [];
+      });
 
-  // Use verified question immediately
-  const randomQuestion = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
+      if (!waitingUsers[category]) waitingUsers[category] = [];
 
-  if (opponent) {
-    // Match found → emit immediately
-    const roomId = `room_${userId}_${opponent.userId}_${Date.now()}`;
-    activeMatches[roomId] = {
-      user1: { userId, username, socketId: socket.id, status: "solving" },
-      user2: { userId: opponent.userId, username: opponent.username, socketId: opponent.socketId, status: "solving" },
-      question: opponent.question,
-      category,
-      startTime: Date.now(),
-    };
-    userToRoom[userId] = roomId;
-    userToRoom[opponent.userId] = roomId;
+      const opponent = waitingUsers[category].shift(); // ⬅️ REMOVE immediately
 
-    socket.join(roomId);
-    io.sockets.sockets.get(opponent.socketId)?.join(roomId);
+      // ✅ SERVER chooses the question ONCE
+      const question = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
 
-    io.to(socket.id).emit("matchFound", { roomId, opponent: opponent.username, opponentId: opponent.userId, yourUsername: username, question: opponent.question });
-    io.to(opponent.socketId).emit("matchFound", { roomId, opponent: username, opponentId: userId, yourUsername: opponent.username, question: opponent.question });
+      if (opponent) {
+        const roomId = `room_${userId}_${opponent.userId}_${Date.now()}`;
 
-  } else {
-    // No opponent → emit waiting instantly with verified question
-    waitingUsers[category].push({ userId, username, socketId: socket.id, question: randomQuestion });
-    socket.emit("waiting", { message: "Looking for opponent...", question: randomQuestion });
+        activeMatches[roomId] = {
+          user1: { userId, username, socketId: socket.id, status: "solving" },
+          user2: { userId: opponent.userId, username: opponent.username, socketId: opponent.socketId, status: "solving" },
+          question,
+          category,
+          startTime: Date.now(),
+        };
 
-    // Now fetch AI question in the background (non-blocking)
-    (async () => {
-      try {
-        if (process.env.GEMINI_API_KEY) {
-          const aiResp = await axios.post(`${BACKEND_URL}/ai/generate-question`, { category });
-          const aiQuestion = aiResp.data.question;
-          console.log("📝 AI background question ready:", aiQuestion.title);
-        }
-      } catch (err) {
-        console.log("⚠️ AI background fetch failed", err.message);
+        userToRoom[userId] = roomId;
+        userToRoom[opponent.userId] = roomId;
+
+        socket.join(roomId);
+        io.sockets.sockets.get(opponent.socketId)?.join(roomId);
+
+        const payloadForUser1 = {
+          roomId,
+          opponent: opponent.username,
+          opponentId: opponent.userId,
+          yourUsername: username,
+          question,
+        };
+
+        const payloadForUser2 = {
+          roomId,
+          opponent: username,
+          opponentId: userId,
+          yourUsername: opponent.username,
+          question,
+        };
+
+        socket.emit("matchFound", payloadForUser1);
+        io.to(opponent.socketId).emit("matchFound", payloadForUser2);
+
+        console.log("🎮 Match created:", roomId);
+      } else {
+        waitingUsers[category].push({
+          userId,
+          username,
+          socketId: socket.id,
+        });
+
+        socket.emit("waiting", {
+          message: "Looking for opponent...",
+          question,
+        });
       }
-    })();
-  }
-});
+    });
+
 
     // Submit answer
     socket.on("submitAnswer", ({ userId, roomId, success }) => {
@@ -92,8 +105,8 @@ export default function initSocket(server) {
         match.user2.status = success ? "completed" : "solving";
       }
 
-      const winner = match.user1.status === "completed" ? match.user1 : 
-                     match.user2.status === "completed" ? match.user2 : null;
+      const winner = match.user1.status === "completed" ? match.user1 :
+        match.user2.status === "completed" ? match.user2 : null;
 
       // Notify opponent of status update
       const opponentSocketId = match.user1.userId === userId ? match.user2.socketId : match.user1.socketId;
@@ -104,7 +117,7 @@ export default function initSocket(server) {
       // If someone won, notify both
       if (winner) {
         const loser = winner === match.user1 ? match.user2 : match.user1;
-        
+
         io.to(match.user1.socketId).emit("gameOver", {
           winner: winner.username,
           winnerId: winner.userId,
@@ -136,7 +149,7 @@ export default function initSocket(server) {
     // Handle disconnect
     socket.on("disconnect", () => {
       console.log(`❌ User disconnected: ${socket.id}`);
-      
+
       // Find user's room
       const userId = Object.keys(userToRoom).find(
         (uid) => {
