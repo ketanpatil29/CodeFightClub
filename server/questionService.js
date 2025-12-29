@@ -1,4 +1,4 @@
-import verifiedQuestions from "./verifiedQuestion";
+import verifiedQuestions from "./verifiedQuestion.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = process.env.GEMINI_API_KEY.js
