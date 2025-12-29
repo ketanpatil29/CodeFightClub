@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import dotenv from "dotenv";
+import verifiedQuestions from "./aiQuestions.js";
 dotenv.config();
 
 import axios from "axios";
