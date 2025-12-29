@@ -1,14 +1,29 @@
 import { Server } from "socket.io";
 import dotenv from "dotenv";
-import verifiedQuestions from "./aiQuestions.js";
+import { getQuestion } from "./services/questionService.js";
+
 dotenv.config();
 
-import axios from "axios";
+/**
+ * waitingUsers = {
+ *   DSA: [{ userId, username, socketId }]
+ * }
+ */
+const waitingUsers = {};
 
-const waitingUsers = {}; // { category: [{ userId, username, socketId, question }] }
-const activeMatches = {}; // { roomId: { user1, user2, question, status } }
-const userToRoom = {}; // { userId: roomId }
-const abandonedUsers = new Set(); // Users who left mid-match
+/**
+ * activeMatches = {
+ *   roomId: {
+ *     user1,
+ *     user2,
+ *     question,
+ *     startTime
+ *   }
+ * }
+ */
+const activeMatches = {};
+const userToRoom = {};
+const abandonedUsers = new Set();
 
 export default function initSocket(server) {
   const io = new Server(server, {
@@ -19,177 +34,163 @@ export default function initSocket(server) {
     },
   });
 
-  const BACKEND_URL = process.env.BACKEND_URL;
-
   io.on("connection", (socket) => {
-    console.log(`✅ User connected: ${socket.id}`);
+    console.log(`✅ Connected: ${socket.id}`);
 
-    // Find match
-   socket.on("findMatch", async ({ userId, username, category }) => {
-  console.log(`🔍 ${username} looking for match in ${category}`);
+    // ==============================
+    // FIND MATCH
+    // ==============================
+    socket.on("findMatch", async ({ userId, username, category = "DSA" }) => {
+      console.log(`🔍 ${username} searching in ${category}`);
 
-  // Clean up abandoned / previous waiting users
-  abandonedUsers.delete(userId);
-  Object.keys(waitingUsers).forEach(cat => {
-    waitingUsers[cat] = waitingUsers[cat]?.filter(u => u.userId !== userId) || [];
-  });
-  if (!waitingUsers[category]) waitingUsers[category] = [];
+      abandonedUsers.delete(userId);
+      if (!waitingUsers[category]) waitingUsers[category] = [];
 
-  // Check for opponent
-  const opponent = waitingUsers[category].find(u => u.userId !== userId && !abandonedUsers.has(u.userId));
+      // Remove user from any other queues
+      Object.keys(waitingUsers).forEach((cat) => {
+        waitingUsers[cat] = waitingUsers[cat].filter(
+          (u) => u.userId !== userId
+        );
+      });
 
-  // Use verified question immediately
-  const randomQuestion = verifiedQuestions[Math.floor(Math.random() * verifiedQuestions.length)];
+      const opponent = waitingUsers[category].shift();
 
-  if (opponent) {
-    // Match found → emit immediately
-    const roomId = `room_${userId}_${opponent.userId}_${Date.now()}`;
-    activeMatches[roomId] = {
-      user1: { userId, username, socketId: socket.id, status: "solving" },
-      user2: { userId: opponent.userId, username: opponent.username, socketId: opponent.socketId, status: "solving" },
-      question: opponent.question,
-      category,
-      startTime: Date.now(),
-    };
-    userToRoom[userId] = roomId;
-    userToRoom[opponent.userId] = roomId;
+      // ✅ ALWAYS fetch question from service
+      const question = await getQuestion(category);
 
-    socket.join(roomId);
-    io.sockets.sockets.get(opponent.socketId)?.join(roomId);
+      if (opponent) {
+        const roomId = `room_${Date.now()}_${userId}_${opponent.userId}`;
 
-    io.to(socket.id).emit("matchFound", { roomId, opponent: opponent.username, opponentId: opponent.userId, yourUsername: username, question: opponent.question });
-    io.to(opponent.socketId).emit("matchFound", { roomId, opponent: username, opponentId: userId, yourUsername: opponent.username, question: opponent.question });
+        activeMatches[roomId] = {
+          user1: opponent,
+          user2: { userId, username, socketId: socket.id },
+          question,
+          startTime: Date.now(),
+        };
 
-  } else {
-    // No opponent → emit waiting instantly with verified question
-    waitingUsers[category].push({ userId, username, socketId: socket.id, question: randomQuestion });
-    socket.emit("waiting", { message: "Looking for opponent...", question: randomQuestion });
+        userToRoom[userId] = roomId;
+        userToRoom[opponent.userId] = roomId;
 
-    // Now fetch AI question in the background (non-blocking)
-    (async () => {
-      try {
-        if (process.env.GEMINI_API_KEY) {
-          const aiResp = await axios.post(`${BACKEND_URL}/ai/generate-question`, { category });
-          const aiQuestion = aiResp.data.question;
-          console.log("📝 AI background question ready:", aiQuestion.title);
-        }
-      } catch (err) {
-        console.log("⚠️ AI background fetch failed", err.message);
+        socket.join(roomId);
+        io.sockets.sockets.get(opponent.socketId)?.join(roomId);
+
+        io.to(roomId).emit("matchFound", {
+          roomId,
+          question,
+          players: [username, opponent.username],
+        });
+
+        console.log(`⚔️ Match started: ${roomId}`);
+      } else {
+        waitingUsers[category].push({
+          userId,
+          username,
+          socketId: socket.id,
+        });
+
+        socket.emit("waiting", {
+          message: "Waiting for opponent...",
+          question,
+        });
       }
-    })();
-  }
-});
+    });
 
-    // Submit answer
+    // ==============================
+    // SUBMIT ANSWER
+    // ==============================
     socket.on("submitAnswer", ({ userId, roomId, success }) => {
       const match = activeMatches[roomId];
       if (!match) return;
 
-      // Update user status
-      if (match.user1.userId === userId) {
-        match.user1.status = success ? "completed" : "solving";
-      } else if (match.user2.userId === userId) {
-        match.user2.status = success ? "completed" : "solving";
-      }
+      const winner =
+        success &&
+        (match.user1.userId === userId
+          ? match.user1
+          : match.user2);
 
-      const winner = match.user1.status === "completed" ? match.user1 : 
-                     match.user2.status === "completed" ? match.user2 : null;
-
-      // Notify opponent of status update
-      const opponentSocketId = match.user1.userId === userId ? match.user2.socketId : match.user1.socketId;
-      io.to(opponentSocketId).emit("opponentStatusUpdate", {
-        status: success ? "completed" : "solving",
-      });
-
-      // If someone won, notify both
       if (winner) {
-        const loser = winner === match.user1 ? match.user2 : match.user1;
-        
+        const loser =
+          winner.userId === match.user1.userId
+            ? match.user2
+            : match.user1;
+
         io.to(match.user1.socketId).emit("gameOver", {
           winner: winner.username,
-          winnerId: winner.userId,
-          loser: loser.username,
-          youWon: match.user1.userId === winner.userId,
+          youWon: winner.userId === match.user1.userId,
         });
 
         io.to(match.user2.socketId).emit("gameOver", {
           winner: winner.username,
-          winnerId: winner.userId,
-          loser: loser.username,
-          youWon: match.user2.userId === winner.userId,
+          youWon: winner.userId === match.user2.userId,
         });
 
-        console.log(`🏆 ${winner.username} won against ${loser.username}`);
-
-        // Cleanup
-        delete activeMatches[roomId];
-        delete userToRoom[match.user1.userId];
-        delete userToRoom[match.user2.userId];
+        cleanupMatch(roomId);
+        console.log(`🏆 Winner: ${winner.username}`);
       }
     });
 
-    // User exits arena
-    socket.on("exitArena", ({ userId, roomId }) => {
-      handleUserExit(io, socket, userId, roomId, false);
+    // ==============================
+    // EXIT ARENA
+    // ==============================
+    socket.on("exitArena", ({ userId }) => {
+      const roomId = userToRoom[userId];
+      if (roomId) handleExit(io, userId, roomId);
     });
 
-    // Handle disconnect
+    // ==============================
+    // DISCONNECT
+    // ==============================
     socket.on("disconnect", () => {
-      console.log(`❌ User disconnected: ${socket.id}`);
-      
-      // Find user's room
-      const userId = Object.keys(userToRoom).find(
-        (uid) => {
-          const roomId = userToRoom[uid];
-          const match = activeMatches[roomId];
-          return match?.user1.socketId === socket.id || match?.user2.socketId === socket.id;
-        }
-      );
+      console.log(`❌ Disconnected: ${socket.id}`);
+
+      const userId = Object.keys(userToRoom).find((uid) => {
+        const roomId = userToRoom[uid];
+        const match = activeMatches[roomId];
+        return (
+          match?.user1.socketId === socket.id ||
+          match?.user2.socketId === socket.id
+        );
+      });
 
       if (userId) {
-        const roomId = userToRoom[userId];
-        handleUserExit(io, socket, userId, roomId, true);
+        handleExit(io, userId, userToRoom[userId], true);
       }
 
-      // Remove from waiting queues
       Object.keys(waitingUsers).forEach((cat) => {
-        waitingUsers[cat] = waitingUsers[cat]?.filter((u) => u.socketId !== socket.id) || [];
+        waitingUsers[cat] = waitingUsers[cat].filter(
+          (u) => u.socketId !== socket.id
+        );
       });
-    });
-
-    // Cancel search
-    socket.on("cancelSearch", ({ userId }) => {
-      Object.keys(waitingUsers).forEach((cat) => {
-        waitingUsers[cat] = waitingUsers[cat]?.filter((u) => u.userId !== userId) || [];
-      });
-      console.log(`🚫 ${userId} cancelled search`);
     });
   });
 
   return io;
 }
 
-// Helper function to handle user exit/disconnect
-function handleUserExit(io, socket, userId, roomId, isDisconnect) {
+// ==============================
+// HELPERS
+// ==============================
+function handleExit(io, userId, roomId, disconnected = false) {
   const match = activeMatches[roomId];
   if (!match) return;
 
-  const exitingUser = match.user1.userId === userId ? match.user1 : match.user2;
-  const remainingUser = match.user1.userId === userId ? match.user2 : match.user1;
-
-  // Mark user as abandoned (so they don't match with same opponent)
   abandonedUsers.add(userId);
 
-  console.log(`🚪 ${exitingUser.username} ${isDisconnect ? 'disconnected' : 'exited'} from ${roomId}`);
+  const remaining =
+    match.user1.userId === userId ? match.user2 : match.user1;
 
-  // Notify remaining user
-  io.to(remainingUser.socketId).emit("opponentLeft", {
-    opponentName: exitingUser.username,
-    message: `${exitingUser.username} has left the match. You can continue practicing or exit.`,
+  io.to(remaining.socketId).emit("opponentLeft", {
+    message: "Opponent left the match",
   });
 
-  // Cleanup
-  delete activeMatches[roomId];
+  cleanupMatch(roomId);
+}
+
+function cleanupMatch(roomId) {
+  const match = activeMatches[roomId];
+  if (!match) return;
+
   delete userToRoom[match.user1.userId];
   delete userToRoom[match.user2.userId];
+  delete activeMatches[roomId];
 }
