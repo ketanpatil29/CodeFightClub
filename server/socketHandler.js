@@ -1,4 +1,4 @@
-import { getQuestion } from ".questionService.js";
+import { getQuestion } from "./questionService.js";
 
 socket.on("findMatch", async ({ userId, username, category }) => {
   const question = await getQuestion(category);
