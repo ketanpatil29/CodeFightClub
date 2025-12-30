@@ -6,38 +6,45 @@ const SocketContext = createContext(null);
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
+  const [findingOpponent, setFindingOpponent] = useState(false);
+  const [arenaData, setArenaData] = useState(null);
 
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_API_BASE;
 
-    const newSocket = io(socketUrl, {
+    const s = io(socketUrl, {
       withCredentials: true,
       transports: ["websocket"],
     });
 
-    newSocket.on("connect", () => {
-      console.log("⚡ Socket connected:", newSocket.id);
+    s.on("connect", () => {
+      console.log("⚡ Socket connected:", s.id);
     });
 
-    newSocket.on("disconnect", () => {
+    s.on("disconnect", () => {
       console.log("🔌 Socket disconnected");
     });
 
-    setSocket(newSocket);
+    setSocket(s);
 
     return () => {
-      newSocket.disconnect();
+      s.disconnect();
     };
   }, []);
 
   return (
-    <SocketContext.Provider value={socket}>
+    <SocketContext.Provider
+      value={{
+        socket,
+        findingOpponent,
+        setFindingOpponent,
+        arenaData,
+        setArenaData,
+      }}
+    >
       {children}
     </SocketContext.Provider>
   );
 };
 
-// ✅ THIS EXPORT IS WHAT YOU WERE MISSING
-export const useSocket = () => {
-  return useContext(SocketContext);
-};
+export const useSocket = () => useContext(SocketContext);
