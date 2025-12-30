@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import getAIQuestion from "./aiQuestion.js";
+import getAIQuestion from "./aiQuestions.js";
 
 const waitingQueue = {}; // { category: [ { socket, userId, username } ] }
 const activeRooms = {};  // { roomId: { users, question } }
