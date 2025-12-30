@@ -1,106 +1,122 @@
-import { v4 as uuidv4 } from "uuid";
-import getAIQuestion from "./aiQuestions.js";
+// socketHandler.js
+import aiQuestions from "./aiQuestions.js";
 
-const waitingQueue = {}; // { category: [ { socket, userId, username } ] }
-const activeRooms = {};  // { roomId: { users, question } }
+const waitingUsers = {}; // { category: [{ userId, username, socketId, question }] }
+const activeMatches = {}; // { roomId: { user1, user2, question, status } }
+const userToRoom = {}; // { userId: roomId }
 
 export default function socketHandler(io) {
   io.on("connection", (socket) => {
-    console.log("🟢 User connected:", socket.id);
+    const userId = socket.handshake.auth?.userId;
 
+    console.log("🟢 User connected:", userId, socket.id);
+
+    // ===============================
     // FIND MATCH
-    socket.on("findMatch", async ({ userId, username, category }) => {
-      if (!userId || !username || !category) {
-        socket.emit("error", { message: "Invalid matchmaking data" });
-        return;
+    // ===============================
+    socket.on("findMatch", ({ userId, username, category }) => {
+      if (!userId || !category) return;
+
+      if (!waitingUsers[category]) {
+        waitingUsers[category] = [];
       }
 
-      socket.userData = { userId, username, category };
+      const question = aiQuestions.getRandomQuestion(category);
 
-      if (!waitingQueue[category]) {
-        waitingQueue[category] = [];
-      }
+      // 🟡 If someone already waiting → MATCH
+      if (waitingUsers[category].length > 0) {
+        const opponent = waitingUsers[category].shift();
 
-      // IF SOMEONE IS ALREADY WAITING → MATCH
-      if (waitingQueue[category].length > 0) {
-        const opponent = waitingQueue[category].shift();
-
-        const roomId = uuidv4();
-        const question = await getAIQuestion(category);
+        const roomId = `room_${socket.id}_${opponent.socketId}`;
 
         socket.join(roomId);
-        opponent.socket.join(roomId);
+        socket.to(opponent.socketId).socketsJoin(roomId);
 
-        activeRooms[roomId] = {
-          users: [
-            { socketId: socket.id, userId, username },
-            {
-              socketId: opponent.socket.id,
-              userId: opponent.userId,
-              username: opponent.username,
-            },
-          ],
+        activeMatches[roomId] = {
+          users: [userId, opponent.userId],
           question,
+          completed: {},
         };
 
-        // SEND MATCH FOUND TO BOTH
-        socket.emit("matchFound", {
+        userToRoom[userId] = roomId;
+        userToRoom[opponent.userId] = roomId;
+
+        // Notify both users
+        io.to(roomId).emit("matchFound", {
           roomId,
+          question,
           opponent: opponent.username,
           opponentId: opponent.userId,
-          question,
         });
 
-        opponent.socket.emit("matchFound", {
-          roomId,
-          opponent: username,
-          opponentId: userId,
-          question,
-        });
-
-        console.log(`⚔️ Match created: ${roomId}`);
+        console.log("🎮 Match created:", roomId);
       } 
-      // ELSE → WAIT
+      // 🟡 Otherwise → WAIT
       else {
-        waitingQueue[category].push({
-          socket,
+        waitingUsers[category].push({
           userId,
           username,
+          socketId: socket.id,
         });
 
-        const question = await getAIQuestion(category);
-
         socket.emit("waiting", {
-          message: "Waiting for opponent...",
+          message: "Looking for opponent...",
           question,
         });
 
-        console.log(`⏳ ${username} waiting in ${category}`);
+        console.log("⏳ Waiting:", userId, category);
       }
     });
 
-    // CANCEL MATCH
-    socket.on("cancelMatch", () => {
-      const { category } = socket.userData || {};
-      if (!category || !waitingQueue[category]) return;
+    // ===============================
+    // SUBMIT ANSWER
+    // ===============================
+    socket.on("submitAnswer", ({ userId, roomId, success }) => {
+      const match = activeMatches[roomId];
+      if (!match) return;
 
-      waitingQueue[category] = waitingQueue[category].filter(
-        (u) => u.socket.id !== socket.id
-      );
+      match.completed[userId] = true;
 
-      console.log("❌ Match cancelled:", socket.id);
+      socket.to(roomId).emit("opponentStatusUpdate", {
+        status: "completed",
+      });
+
+      const completedUsers = Object.keys(match.completed);
+
+      // 🏆 WIN CONDITION
+      if (completedUsers.length === 1) {
+        io.to(roomId).emit("gameOver", {
+          winner: userId,
+          youWon: false,
+        });
+
+        cleanupRoom(roomId);
+      }
     });
 
+    // ===============================
+    // EXIT ARENA
+    // ===============================
+    socket.on("exitArena", ({ userId, roomId }) => {
+      socket.to(roomId).emit("opponentLeft");
+      cleanupRoom(roomId);
+    });
+
+    // ===============================
     // DISCONNECT
+    // ===============================
     socket.on("disconnect", () => {
-      const { category } = socket.userData || {};
-      if (!category || !waitingQueue[category]) return;
-
-      waitingQueue[category] = waitingQueue[category].filter(
-        (u) => u.socket.id !== socket.id
-      );
-
-      console.log("🔴 User disconnected:", socket.id);
+      console.log("🔌 Disconnected:", userId, socket.id);
     });
+  });
+}
+
+function cleanupRoom(roomId) {
+  delete activeMatches[roomId];
+
+  Object.keys(userToRoom).forEach((uid) => {
+    if (userToRoom[uid] === roomId) {
+      delete userToRoom[uid];
+    }
   });
 }

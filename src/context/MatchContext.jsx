@@ -6,42 +6,45 @@ const SocketContext = createContext(null);
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
-  const [findingOpponent, setFindingOpponent] = useState(false);
-  const [arenaData, setArenaData] = useState(null);
 
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_API_BASE;
+    const userId = localStorage.getItem("userId");
 
-    const s = io(socketUrl, {
+    const newSocket = io(socketUrl, {
       withCredentials: true,
-      transports: ["websocket"],
+
+      // ✅ IMPORTANT FOR RENDER + FIREFOX
+      transports: ["polling", "websocket"],
+
+      // ✅ Stability
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+
+      // ✅ Pass user identity
+      auth: {
+        userId,
+      },
     });
 
-    s.on("connect", () => {
-      console.log("⚡ Socket connected:", s.id);
+    newSocket.on("connect", () => {
+      console.log("⚡ Socket connected:", newSocket.id);
     });
 
-    s.on("disconnect", () => {
-      console.log("🔌 Socket disconnected");
+    newSocket.on("disconnect", (reason) => {
+      console.log("🔌 Socket disconnected:", reason);
     });
 
-    setSocket(s);
+    setSocket(newSocket);
 
     return () => {
-      s.disconnect();
+      newSocket.disconnect();
     };
   }, []);
 
   return (
-    <SocketContext.Provider
-      value={{
-        socket,
-        findingOpponent,
-        setFindingOpponent,
-        arenaData,
-        setArenaData,
-      }}
-    >
+    <SocketContext.Provider value={socket}>
       {children}
     </SocketContext.Provider>
   );
