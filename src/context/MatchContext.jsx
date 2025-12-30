@@ -24,8 +24,9 @@ export const SocketProvider = ({ children }) => {
 
       // ✅ Pass user identity
       auth: {
-        userId,
+        userId: localStorage.getItem("userId") || "guest_" + Date.now(),
       },
+
     });
 
     newSocket.on("connect", () => {
