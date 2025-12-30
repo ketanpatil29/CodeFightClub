@@ -4,7 +4,7 @@ import { useSocket } from "../context/MatchContext";
 import { API_BASE } from "./Api";
 
 const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
-  const { socket } = useSocket();
+  const socket = useSocket();
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("solving");
   const [opponentStatus, setOpponentStatus] = useState("solving");

@@ -1,24 +1,24 @@
-import React, { useEffect, useState } from "react";
-import { useSocket } from "../context/MatchContext";
+import React, { useEffect, useState } from 'react';
+import { useSocket } from '../context/MatchContext';
 
-const MatchFoundModal = ({
-  isOpen,
-  findingOpponent,
-  onEnterBattle,
-  onCancelMatch,
-  selectedCategory,
-  setFindingOpponent,
-  setOpponent,
-  opponent,
+const MatchFoundModal = ({ 
+  isOpen, 
+  findingOpponent, 
+  onEnterBattle, 
+  onCancelMatch, 
+  selectedCategory, 
+  setFindingOpponent, 
+  setOpponent, 
+  opponent 
 }) => {
-  const { socket } = useSocket(); // ✅ FIX
+  const socket = useSocket();
   const [questionTitle, setQuestionTitle] = useState("");
 
   useEffect(() => {
     if (!socket) return;
 
     const handleWaiting = (data) => {
-      if (data?.question?.title) {
+      if (data.question) {
         setQuestionTitle(data.question.title);
         console.log("📝 Question prepared:", data.question.title);
       }
@@ -26,31 +26,26 @@ const MatchFoundModal = ({
 
     const handleMatchFound = (data) => {
       console.log("🎮 Match found in modal:", data);
-
       setFindingOpponent(false);
       setOpponent(data.opponent);
-
-      if (data?.question?.title) {
+      
+      if (data.question) {
         setQuestionTitle(data.question.title);
       }
 
-      localStorage.setItem(
-        "arenaData",
-        JSON.stringify({
-          roomId: data.roomId,
-          question: data.question,
-          opponent: data.opponent,
-          opponentId: data.opponentId,
-          user: {
-            username:
-              data.yourUsername ||
-              localStorage.getItem("username") ||
-              "User",
-            token: localStorage.getItem("token"),
-          },
-        })
-      );
+      // Save to localStorage (App.jsx also does this, but backup)
+      localStorage.setItem("arenaData", JSON.stringify({
+        roomId: data.roomId,
+        question: data.question,
+        opponent: data.opponent,
+        opponentId: data.opponentId,
+        user: { 
+          username: data.yourUsername || localStorage.getItem("username") || "User",
+          token: localStorage.getItem("token")
+        }
+      }));
 
+      // Auto-enter after delay
       setTimeout(() => onEnterBattle(), 2000);
     };
 
@@ -70,26 +65,18 @@ const MatchFoundModal = ({
       <div className="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl text-center">
         <h2 className="text-2xl font-bold mb-6">
           {!questionTitle ? (
-            <span className="text-blue-600 animate-pulse">
-              Preparing Question...
-            </span>
+            <span className="text-blue-600 animate-pulse">Preparing Question...</span>
           ) : findingOpponent ? (
-            <span className="text-yellow-600 animate-pulse">
-              Finding an opponent...
-            </span>
+            <span className="text-yellow-600 animate-pulse">Finding an opponent...</span>
           ) : (
-            <span className="text-green-600 animate-bounce">
-              Opponent Found! 🎉
-            </span>
+            <span className="text-green-600 animate-bounce">Opponent Found! 🎉</span>
           )}
         </h2>
 
         {questionTitle && (
           <div className="mb-4 p-4 bg-gray-100 rounded-lg">
             <p className="text-sm text-gray-600 mb-1">Today's Challenge:</p>
-            <p className="text-lg font-semibold text-gray-800">
-              {questionTitle}
-            </p>
+            <p className="text-lg font-semibold text-gray-800">{questionTitle}</p>
           </div>
         )}
 
