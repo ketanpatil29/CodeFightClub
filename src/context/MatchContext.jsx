@@ -8,33 +8,31 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_API_BASE;
     const userId = localStorage.getItem("userId");
+    const username = localStorage.getItem("username");
+
+    if (!userId || !username) {
+      console.warn("⛔ Socket not initialized: user not logged in yet");
+      return;
+    }
+
+    const socketUrl = import.meta.env.VITE_API_BASE;
 
     const newSocket = io(socketUrl, {
       withCredentials: true,
-
-      // ✅ IMPORTANT FOR RENDER + FIREFOX
-      transports: ["polling", "websocket"],
-
-      // ✅ Stability
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-
-      // ✅ Pass user identity
+      transports: ["websocket"],
       auth: {
-        userId: localStorage.getItem("userId") || "guest_" + Date.now(),
+        userId,
+        username,
       },
-
     });
 
     newSocket.on("connect", () => {
       console.log("⚡ Socket connected:", newSocket.id);
     });
 
-    newSocket.on("disconnect", (reason) => {
-      console.log("🔌 Socket disconnected:", reason);
+    newSocket.on("disconnect", () => {
+      console.log("🔌 Socket disconnected");
     });
 
     setSocket(newSocket);
@@ -42,7 +40,7 @@ export const SocketProvider = ({ children }) => {
     return () => {
       newSocket.disconnect();
     };
-  }, []);
+  }, []); // ❗ DO NOT add userId here (avoids reconnect loop)
 
   return (
     <SocketContext.Provider value={socket}>

@@ -7,14 +7,16 @@ const userToRoom = {};
 
 export default function socketHandler(io) {
   io.on("connection", (socket) => {
-    const userId =
-      socket.handshake?.auth?.userId ||
-      socket.handshake?.query?.userId ||
-      null;
+    const auth = socket.handshake.auth || {};
 
-    socket.userId = userId;
+    const userId = auth.userId || null;
+    const username = auth.username || "anonymous";
 
-    console.log("🟢 User connected:", userId || "anonymous", socket.id);
+    console.log("🟢 User connected:", username, userId);
+
+    socket.on("disconnect", () => {
+      console.log("🔴 User disconnected:", username, userId);
+    });
 
     // ================= FIND MATCH =================
     socket.on("findMatch", ({ userId, username, category }) => {
@@ -52,7 +54,7 @@ export default function socketHandler(io) {
         });
 
         console.log("🎮 Match created:", roomId);
-      } 
+      }
       // WAITING
       else {
         waitingUsers[category].push({
