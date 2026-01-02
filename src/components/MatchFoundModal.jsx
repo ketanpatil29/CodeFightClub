@@ -13,7 +13,10 @@ const MatchFoundModal = ({
   const [questionTitle, setQuestionTitle] = useState("");
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.warn("⚠️ Socket not available in MatchFoundModal");
+      return;
+    }
 
     const handleWaiting = (data) => {
       console.log("⏳ Waiting event received:", data);
@@ -22,16 +25,44 @@ const MatchFoundModal = ({
       if (data?.question?.title) {
         setQuestionTitle(data.question.title);
         console.log("📝 Question ready while waiting:", data.question.title);
+      } else {
+        console.warn("⚠️ No question in waiting event");
+        setQuestionTitle("Preparing your challenge...");
       }
     };
 
     const handleMatchFound = (data) => {
       console.log("🎮 Match found event received:", data);
+      
+      // Validate data
+      if (!data.roomId || !data.question || !data.opponent) {
+        console.error("❌ Invalid match data received:", data);
+        alert("Match data incomplete. Please try again.");
+        onCancelMatch();
+        return;
+      }
+
       setFindingOpponent(false);
       setOpponent(data.opponent);
       
       if (data?.question?.title) {
         setQuestionTitle(data.question.title);
+        console.log("✅ Question received:", data.question.title);
+      } else {
+        console.error("❌ No question in match data!");
+        alert("Question not received. Please try again.");
+        onCancelMatch();
+        return;
+      }
+
+      // Get user data with fallbacks
+      const userId = localStorage.getItem("userId");
+      const userName = localStorage.getItem("userName") || localStorage.getItem("userEmail");
+
+      if (!userId || !userName) {
+        console.error("❌ User data missing from localStorage");
+        alert("Please login again.");
+        return;
       }
 
       const arenaPayload = {
@@ -40,11 +71,12 @@ const MatchFoundModal = ({
         opponent: data.opponent,
         opponentId: data.opponentId,
         user: {
-          id: localStorage.getItem("userId"),
-          name: localStorage.getItem("userName"),
+          id: userId,
+          name: userName,
         }
       };
 
+      console.log("💾 Saving arena data:", arenaPayload);
       localStorage.setItem("arenaData", JSON.stringify(arenaPayload));
       setArenaData(arenaPayload);
 
@@ -61,16 +93,25 @@ const MatchFoundModal = ({
       setOpponent("");
     };
 
+    const handleError = (error) => {
+      console.error("⚠️ Socket error in MatchFoundModal:", error);
+      alert(error.message || "An error occurred");
+      setFindingOpponent(false);
+      onCancelMatch();
+    };
+
     socket.on("waiting", handleWaiting);
     socket.on("matchFound", handleMatchFound);
     socket.on("searchCancelled", handleSearchCancelled);
+    socket.on("error", handleError);
 
     return () => {
       socket.off("waiting", handleWaiting);
       socket.off("matchFound", handleMatchFound);
       socket.off("searchCancelled", handleSearchCancelled);
+      socket.off("error", handleError);
     };
-  }, [socket, setFindingOpponent, setOpponent, setArenaData, onEnterBattle]);
+  }, [socket, setFindingOpponent, setOpponent, setArenaData, onEnterBattle, onCancelMatch]);
 
   if (!isOpen) return null;
 

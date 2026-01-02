@@ -59,6 +59,16 @@ function App() {
       return;
     }
 
+    // Get userId and username from multiple sources
+    const userId = user?.id || localStorage.getItem("userId");
+    const username = user?.name || localStorage.getItem("userName") || user?.email || localStorage.getItem("userEmail");
+
+    if (!userId || !username) {
+      alert("User data not found. Please login again.");
+      setShowLogin(true);
+      return;
+    }
+
     console.log("🎯 Starting match search...");
     
     setCategoryModalOpen(false);
@@ -68,12 +78,12 @@ function App() {
 
     // Emit findMatch to backend
     socket.emit("findMatch", {
-      userId: user?.id,
-      username: user?.name,
+      userId,
+      username,
       category: selectedCategory,
     });
 
-    console.log("📤 Emitted findMatch:", { userId: user?.id, username: user?.name, category: selectedCategory });
+    console.log("📤 Emitted findMatch:", { userId, username, category: selectedCategory });
   };
 
   const cancelMatch = () => {

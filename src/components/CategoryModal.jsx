@@ -23,15 +23,22 @@ const CategoryModal = ({
       return;
     }
 
+    // Get user data from localStorage with fallbacks
     const userId = localStorage.getItem("userId");
-    const username = localStorage.getItem("userName");
+    const username = localStorage.getItem("userName") || localStorage.getItem("userEmail");
+    const userObj = JSON.parse(localStorage.getItem("user") || "{}");
 
-    if (!userId || !username) {
+    // Final fallback to user object
+    const finalUserId = userId || userObj.id;
+    const finalUsername = username || userObj.name || userObj.email;
+
+    if (!finalUserId || !finalUsername) {
       alert("User data not found. Please login again.");
+      console.error("❌ Missing user data:", { userId: finalUserId, username: finalUsername });
       return;
     }
 
-    console.log("🎯 Finding match:", { userId, username, category: selectedCategory });
+    console.log("🎯 Finding match:", { userId: finalUserId, username: finalUsername, category: selectedCategory });
 
     // Call the parent's onStartMatch which handles the socket emit
     onStartMatch();

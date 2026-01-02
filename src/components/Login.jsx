@@ -21,30 +21,33 @@ const Login = ({ onClose, setToken, setUser }) => {
 
       const { token, user } = res.data;
 
-      // ✅ SAVE ALL USER DATA TO LOCALSTORAGE
-      localStorage.setItem("token", token);
-      localStorage.setItem("userId", user.id); // For socket.emit
-      localStorage.setItem("userName", user.name); // For socket.emit
-      localStorage.setItem("user", JSON.stringify(user)); // Complete user object
+      console.log("✅ Login successful:", user);
 
-      // Update state
+      // ✅ CRITICAL: Save ALL user data to localStorage
+      localStorage.setItem("token", token);
+      localStorage.setItem("userId", user.id);
+      localStorage.setItem("userName", user.name); // ← This was missing!
+      localStorage.setItem("userEmail", user.email);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      // Update React state
       setToken(token);
       setUser(user);
 
       setMessage("Login successful!");
 
-      console.log("✅ User logged in:", {
+      console.log("📦 Saved to localStorage:", {
         userId: user.id,
         userName: user.name,
-        email: user.email
+        userEmail: user.email
       });
 
       setTimeout(() => {
         if (onClose) onClose();
       }, 300);
     } catch (err) {
-      console.error("Login error:", err);
-      setMessage("Google login failed. Please try again.");
+      console.error("❌ Login error:", err);
+      setMessage(err.response?.data?.error || "Google login failed. Please try again.");
     }
   };
 

@@ -106,7 +106,7 @@ export default function initSocket(server) {
     socket.on("findMatch", ({ userId, username, category }) => {
       if (!userId || !username || !category) {
         console.warn(`⚠️ findMatch received invalid data:`, { userId, username, category });
-        socket.emit("error", { message: "Invalid data provided" });
+        socket.emit("error", { message: "Invalid data provided. Please login again." });
         return;
       }
 
@@ -128,6 +128,13 @@ export default function initSocket(server) {
       if (opponent && opponent.userId !== userId) {
         // Match found! Pick a question
         const question = getRandomQuestion(category);
+        
+        if (!question || !question.title) {
+          console.error(`❌ Failed to get question for category: ${category}`);
+          socket.emit("error", { message: "Failed to prepare question. Please try again." });
+          return;
+        }
+
         const roomId = `room_${userId}_${opponent.userId}_${Date.now()}`;
 
         activeMatches[roomId] = {
@@ -147,6 +154,8 @@ export default function initSocket(server) {
         if (opponentSocket) {
           opponentSocket.join(roomId);
         }
+
+        console.log(`✅ Question prepared: "${question.title}" for ${category}`);
 
         // Emit match found to both users
         socket.emit("matchFound", {
@@ -172,6 +181,14 @@ export default function initSocket(server) {
         // No opponent found, add to waiting queue
         waitingUsers[category].push({ userId, username, socketId: socket.id });
         const waitingQuestion = getRandomQuestion(category);
+        
+        if (!waitingQuestion || !waitingQuestion.title) {
+          console.error(`❌ Failed to get waiting question for category: ${category}`);
+          socket.emit("error", { message: "Failed to prepare question. Please try again." });
+          return;
+        }
+
+        console.log(`✅ Waiting question prepared: "${waitingQuestion.title}" for ${category}`);
         
         socket.emit("waiting", { 
           message: "Looking for opponent...", 
