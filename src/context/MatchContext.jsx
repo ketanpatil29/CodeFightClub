@@ -11,11 +11,19 @@ export const MatchProvider = ({ children }) => {
   const [status, setStatus] = useState("idle"); // idle | waiting | matched
 
   useEffect(() => {
-    const newSocket = io("http://localhost:5000", {
+    // Get socket URL from environment or default to production
+    const SOCKET_URL = import.meta.env.VITE_API_BASE || 
+                       import.meta.env.VITE_SOCKET_URL || 
+                       "https://codefightclub.onrender.com";
+    
+    console.log("🔌 Connecting to socket server:", SOCKET_URL);
+    
+    const newSocket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
+      withCredentials: true,
     });
 
     newSocket.on("connect", () => {

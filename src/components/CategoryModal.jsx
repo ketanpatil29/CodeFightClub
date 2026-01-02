@@ -13,8 +13,22 @@ const CategoryModal = ({
   if (!isOpen) return null;
 
   const handleFindMatch = () => {
-    if (!socket || !socket.connected) {
-      alert("Socket not ready! Please refresh the page.");
+    console.log("🎯 Find match clicked");
+    console.log("Socket state:", { 
+      exists: !!socket, 
+      connected: socket?.connected,
+      id: socket?.id 
+    });
+    
+    if (!socket) {
+      alert("Connection not established. Please refresh the page.");
+      console.error("❌ Socket is null/undefined");
+      return;
+    }
+    
+    if (!socket.connected) {
+      alert("Not connected to server. Please check your internet and refresh.");
+      console.error("❌ Socket exists but not connected");
       return;
     }
     
@@ -38,7 +52,12 @@ const CategoryModal = ({
       return;
     }
 
-    console.log("🎯 Finding match:", { userId: finalUserId, username: finalUsername, category: selectedCategory });
+    console.log("✅ All checks passed, finding match:", { 
+      userId: finalUserId, 
+      username: finalUsername, 
+      category: selectedCategory,
+      socketId: socket.id
+    });
 
     // Call the parent's onStartMatch which handles the socket emit
     onStartMatch();

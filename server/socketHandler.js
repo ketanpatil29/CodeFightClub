@@ -93,10 +93,17 @@ function getRandomQuestion(category) {
 export default function initSocket(server) {
   const io = new Server(server, {
     cors: {
-      origin: "*",
+      origin: [
+        "https://codefightclub.vercel.app",
+        "http://localhost:5173",
+        "*"
+      ],
       methods: ["GET", "POST"],
       credentials: true,
+      allowedHeaders: ["Content-Type"],
     },
+    transports: ["websocket", "polling"],
+    allowEIO3: true,
   });
 
   io.on("connection", (socket) => {
