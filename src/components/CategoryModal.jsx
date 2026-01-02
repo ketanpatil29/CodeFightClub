@@ -1,24 +1,41 @@
-
 import React from 'react';
 import { useSocket } from '../context/MatchContext';
 
-const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, selectedCategory }) => {
-  const socket = useSocket();
+const CategoryModal = ({ 
+  isOpen, 
+  onClose, 
+  onStartMatch, 
+  onSelectCategory, 
+  selectedCategory 
+}) => {
+  const { socket } = useSocket();
 
   if (!isOpen) return null;
 
   const handleFindMatch = () => {
-  if (!socket) return alert("Socket not ready yet!");
-  if (!selectedCategory) return alert("Please select a category!");
+    if (!socket || !socket.connected) {
+      alert("Socket not ready! Please refresh the page.");
+      return;
+    }
+    
+    if (!selectedCategory) {
+      alert("Please select a category first!");
+      return;
+    }
 
-  if (!selectedCategory) return alert("Please select a category!");
+    const userId = localStorage.getItem("userId");
+    const username = localStorage.getItem("userName");
 
-  const userId = localStorage.getItem("userId");
-  const username = localStorage.getItem("userName");
+    if (!userId || !username) {
+      alert("User data not found. Please login again.");
+      return;
+    }
 
-  socket.emit("findMatch", { userId, username, category: selectedCategory });
-  onStartMatch();
-};
+    console.log("🎯 Finding match:", { userId, username, category: selectedCategory });
+
+    // Call the parent's onStartMatch which handles the socket emit
+    onStartMatch();
+  };
 
   const categories = [
     { 
@@ -56,14 +73,22 @@ const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, select
       <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl p-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="font-bold text-2xl">SELECT YOUR BATTLE MODE</h1>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl"><i className="fas fa-times"></i></button>
+          <button 
+            onClick={onClose} 
+            className="text-gray-500 hover:text-gray-700 text-2xl"
+          >
+            <i className="fas fa-times"></i>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-8">
           {categories.map((category) => (
-            <button key={category.title} 
-            className={`bg-gray-50 rounded-xl text-center transition-all duration-300 hover:shadow-md hover:translate-y-1 border border-gray-200 p-6 ${selectedCategory === category.title ? 'ring-2 ring-purple-500' : ''}`}
-            onClick={() => onSelectCategory(category.title)}
+            <button
+              key={category.title}
+              className={`bg-gray-50 rounded-xl text-center transition-all duration-300 hover:shadow-md hover:-translate-y-1 border border-gray-200 p-6 ${
+                selectedCategory === category.title ? 'ring-2 ring-purple-500 bg-purple-50' : ''
+              }`}
+              onClick={() => onSelectCategory(category.title)}
             >
               <div className={`${category.color} w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4`}>
                 <i className={`${category.icon} ${category.textColor} text-2xl`}></i>
@@ -74,20 +99,26 @@ const CategoryModal = ({ isOpen, onClose, onStartMatch, onSelectCategory, select
           ))}
         </div>
 
-        {selectedCategory && 
-          (
-            <div className="text-center">
-              <h2 className="text-xl font-semibold mb-4">SELECTED CATEGORY: {" "}
-                <span className="text-purple-600">
-                  {selectedCategory}
-                </span>
-               </h2>
-            </div>
-          )
-        }
+        {selectedCategory && (
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-semibold">
+              SELECTED CATEGORY: <span className="text-purple-600">{selectedCategory}</span>
+            </h2>
+          </div>
+        )}
 
         <div className="text-center">
-          <button onClick={handleFindMatch} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-md hover:scale-105 hover:shadow-lg transition-all duration-300 w-full px-8 py-4">FIND MATCH</button>
+          <button
+            onClick={handleFindMatch}
+            disabled={!selectedCategory}
+            className={`rounded-lg font-semibold shadow-md transition-all duration-300 w-full px-8 py-4 ${
+              selectedCategory
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:scale-105 hover:shadow-lg'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            FIND MATCH
+          </button>
         </div>
       </div>
     </div>

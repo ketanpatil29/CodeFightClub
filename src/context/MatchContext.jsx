@@ -1,26 +1,57 @@
-// src/context/MatchContext.jsx
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
-const SocketContext = createContext(null);
+const MatchContext = createContext(null);
 
-export const SocketProvider = ({ children }) => {
+export const MatchProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
+  const [matchData, setMatchData] = useState(null);
+  const [arenaData, setArenaData] = useState(null);
+  const [findingOpponent, setFindingOpponent] = useState(false);
+  const [status, setStatus] = useState("idle"); // idle | waiting | matched
 
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_API_BASE;
-
-    const newSocket = io(socketUrl, {
-      withCredentials: true,
-      transports: ["websocket"],
+    const newSocket = io("http://localhost:5000", {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
     });
 
     newSocket.on("connect", () => {
       console.log("⚡ Socket connected:", newSocket.id);
     });
 
+    newSocket.on("connect_error", (error) => {
+      console.error("❌ Socket connection error:", error);
+    });
+
     newSocket.on("disconnect", () => {
       console.log("🔌 Socket disconnected");
+    });
+
+    newSocket.on("waiting", (data) => {
+      console.log("⏳ Waiting for opponent:", data);
+      setStatus("waiting");
+      setFindingOpponent(true);
+    });
+
+    newSocket.on("matchFound", (data) => {
+      console.log("🎮 Match found:", data);
+      setMatchData(data);
+      setStatus("matched");
+      setFindingOpponent(false);
+    });
+
+    newSocket.on("searchCancelled", () => {
+      console.log("🚫 Search cancelled");
+      setStatus("idle");
+      setFindingOpponent(false);
+    });
+
+    newSocket.on("error", (error) => {
+      console.error("⚠️ Socket error:", error);
+      alert(error.message || "An error occurred");
     });
 
     setSocket(newSocket);
@@ -31,13 +62,26 @@ export const SocketProvider = ({ children }) => {
   }, []);
 
   return (
-    <SocketContext.Provider value={socket}>
+    <MatchContext.Provider
+      value={{
+        socket,
+        matchData,
+        arenaData,
+        setArenaData,
+        status,
+        findingOpponent,
+        setFindingOpponent,
+      }}
+    >
       {children}
-    </SocketContext.Provider>
+    </MatchContext.Provider>
   );
 };
 
-// ✅ THIS EXPORT IS WHAT YOU WERE MISSING
 export const useSocket = () => {
-  return useContext(SocketContext);
+  const context = useContext(MatchContext);
+  if (!context) {
+    throw new Error("useSocket must be used within MatchProvider");
+  }
+  return context;
 };

@@ -1,10 +1,8 @@
-// App.jsx
 import { useState, useEffect } from 'react';
 import './App.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from './context/MatchContext';
-import axios from 'axios';
 
 import HeaderTop from './components/HeaderTop';
 import Dashboard from './components/Dashboard';
@@ -23,13 +21,11 @@ function AppWrapper() {
 }
 
 function App() {
-  const socket = useSocket();
+  const { socket } = useSocket();
   const navigate = useNavigate();
 
   const [token, setToken] = useState(localStorage.getItem("token"));
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("user"))
-  );
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -38,32 +34,69 @@ function App() {
   const [opponent, setOpponent] = useState("");
   const [opponentId, setOpponentId] = useState("");
 
-  const openCategoryModal = () => setCategoryModalOpen(true);
-  const closeCategoryModal = () => setCategoryModalOpen(false);
+  const openCategoryModal = () => {
+    if (!user || !user.id) {
+      alert("Please login first!");
+      setShowLogin(true);
+      return;
+    }
+    setCategoryModalOpen(true);
+  };
+
+  const closeCategoryModal = () => {
+    setCategoryModalOpen(false);
+    setSelectedCategory("");
+  };
 
   const startMatch = () => {
+    if (!socket || !socket.connected) {
+      alert("Connection error! Please refresh the page.");
+      return;
+    }
+
+    if (!selectedCategory) {
+      alert("Please select a category!");
+      return;
+    }
+
+    console.log("🎯 Starting match search...");
+    
     setCategoryModalOpen(false);
     setMatchFoundModalOpen(true);
     setFindingOpponent(true);
     setOpponent("");
 
-    // Emit findMatch - backend will generate question
+    // Emit findMatch to backend
     socket.emit("findMatch", {
       userId: user?.id,
       username: user?.name,
-      category: selectedCategory || "DSA",
+      category: selectedCategory,
     });
+
+    console.log("📤 Emitted findMatch:", { userId: user?.id, username: user?.name, category: selectedCategory });
   };
 
   const cancelMatch = () => {
-    socket.emit("cancelSearch", { userId: token });
+    if (socket) {
+      socket.emit("cancelSearch", { userId: user?.id });
+    }
     setFindingOpponent(false);
     setMatchFoundModalOpen(false);
+    setSelectedCategory("");
+    setOpponent("");
   };
 
   const enterBattle = () => {
     const arenaData = JSON.parse(localStorage.getItem("arenaData") || "{}");
-    if (!arenaData || !arenaData.question) return alert("No question found!");
+    
+    if (!arenaData || !arenaData.question) {
+      alert("No question found! Please try again.");
+      setMatchFoundModalOpen(false);
+      return;
+    }
+
+    console.log("⚔️ Entering arena with data:", arenaData);
+    
     setFindingOpponent(false);
     setMatchFoundModalOpen(false);
     navigate("/arena", { state: arenaData });
@@ -74,35 +107,36 @@ function App() {
     if (!socket) return;
 
     const handleMatchFound = (data) => {
-      console.log("🎮 Match found:", data);
+      console.log("🎮 Match found event in App:", data);
       setFindingOpponent(false);
       setOpponent(data.opponent);
       setOpponentId(data.opponentId);
 
-      // Save complete arenaData with question from backend
-      localStorage.setItem("arenaData", JSON.stringify({
+      // Save complete arenaData
+      const arenaPayload = {
         roomId: data.roomId,
-        question: data.question, // Question comes from backend now!
+        question: data.question,
         opponent: data.opponent,
         opponentId: data.opponentId,
         user: {
-          id: user.id,
-          name: user.name,
+          id: user?.id,
+          name: user?.name,
           token
         }
-      }));
+      };
 
-      console.log("📝 Question received:", data.question.title);
+      localStorage.setItem("arenaData", JSON.stringify(arenaPayload));
+      console.log("✅ Arena data saved:", arenaPayload);
 
       // Auto-enter battle after short delay
-      setTimeout(() => enterBattle(), 1500);
+      setTimeout(() => {
+        enterBattle();
+      }, 1500);
     };
 
     const handleWaiting = (data) => {
-      console.log("⏳ Waiting for opponent:", data.message);
-      if (data.question) {
-        console.log("📝 Your question ready:", data.question.title);
-      }
+      console.log("⏳ Waiting for opponent:", data);
+      setFindingOpponent(true);
     };
 
     socket.on("matchFound", handleMatchFound);
@@ -185,14 +219,14 @@ function ArenaWrapper({ onExit }) {
   const arenaData = location.state || JSON.parse(localStorage.getItem("arenaData") || "{}");
   const { opponent, opponentId, question, user, roomId } = arenaData;
 
-  if (!question || !opponent) {
+  if (!question || !opponent || !roomId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="text-center">
-          <p className="text-white text-xl mb-4">No opponent or question found.</p>
+          <p className="text-white text-xl mb-4">No match data found.</p>
           <button
             onClick={onExit}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
           >
             Return to Dashboard
           </button>
@@ -207,6 +241,7 @@ function ArenaWrapper({ onExit }) {
       opponentName={opponent}
       opponentId={opponentId}
       question={question}
+      roomId={roomId}
       onExit={onExit}
     />
   );

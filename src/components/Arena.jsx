@@ -3,8 +3,8 @@ import Editor from "@monaco-editor/react";
 import { useSocket } from "../context/MatchContext";
 import { API_BASE } from "./Api";
 
-const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
-  const socket = useSocket();
+const Arena = ({ user, opponentName, opponentId, question, roomId, onExit }) => {
+  const { socket } = useSocket(); // ✅ Get socket from context
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("solving");
   const [opponentStatus, setOpponentStatus] = useState("solving");
@@ -24,17 +24,22 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
 
   // Listen for socket events
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.warn("⚠️ Socket not available in Arena");
+      return;
+    }
+
+    console.log("🎮 Arena mounted - Listening for socket events in room:", roomId);
 
     // Opponent status updates
-    socket.on("opponentStatusUpdate", (data) => {
-      console.log("Opponent status:", data.status);
+    const handleOpponentStatus = (data) => {
+      console.log("👤 Opponent status update:", data.status);
       setOpponentStatus(data.status);
-    });
+    };
 
     // Game over - someone won
-    socket.on("gameOver", (data) => {
-      console.log("Game Over:", data);
+    const handleGameOver = (data) => {
+      console.log("🏆 Game Over:", data);
       setGameOver(true);
       
       const message = data.youWon
@@ -45,28 +50,30 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
         alert(message);
         onExit();
       }, 500);
-    });
+    };
 
     // Opponent left the match
-    socket.on("opponentLeft", (data) => {
-      console.log("Opponent left:", data);
+    const handleOpponentLeft = (data) => {
+      console.log("🚪 Opponent left:", data);
       setOpponentStatus("left");
       setShowOpponentLeftModal(true);
-    });
+    };
+
+    socket.on("opponentStatusUpdate", handleOpponentStatus);
+    socket.on("gameOver", handleGameOver);
+    socket.on("opponentLeft", handleOpponentLeft);
 
     return () => {
-      socket.off("opponentStatusUpdate");
-      socket.off("gameOver");
-      socket.off("opponentLeft");
+      socket.off("opponentStatusUpdate", handleOpponentStatus);
+      socket.off("gameOver", handleGameOver);
+      socket.off("opponentLeft", handleOpponentLeft);
     };
-  }, [socket, onExit]);
+  }, [socket, roomId, onExit]);
 
   const submitAnswer = async () => {
     if (isSubmitting || status === "completed" || gameOver) return;
     
     setIsSubmitting(true);
-    const arenaData = JSON.parse(localStorage.getItem("arenaData") || "{}");
-    const roomId = arenaData.roomId;
 
     try {
       const res = await fetch(`${API_BASE}/ai/submit-answer`, {
@@ -92,9 +99,15 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
 
       if (data.success) {
         setStatus("completed");
-        // Emit to opponent that you've completed
+        
+        // Get userId from localStorage or user object
+        const userId = user?.id || localStorage.getItem("userId");
+        
+        console.log("✅ Emitting submitAnswer:", { userId, roomId, success: true });
+        
+        // Emit to backend that you've completed
         socket?.emit("submitAnswer", { 
-          userId: user.id || user.token, 
+          userId, 
           roomId,
           success: true,
         });
@@ -105,12 +118,13 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
         alert(`${data.passedCount}/${data.totalTests} tests passed. Keep trying!`);
       }
     } catch (err) {
-      console.error("Submission error:", err);
+      console.error("❌ Submission error:", err);
       setTestResults({
         success: false,
         error: "Network error. Please try again.",
         results: []
       });
+      alert("Submission failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -122,18 +136,16 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
       return;
     }
 
-    const arenaData = JSON.parse(localStorage.getItem("arenaData") || "{}");
-    const roomId = arenaData.roomId;
-    
     const confirmExit = window.confirm(
       "Are you sure you want to exit? You'll forfeit this match."
     );
     
     if (confirmExit) {
-      socket?.emit("exitArena", { 
-        userId: user.id || user.token, 
-        roomId 
-      });
+      const userId = user?.id || localStorage.getItem("userId");
+      
+      console.log("🚪 Exiting arena:", { userId, roomId });
+      
+      socket?.emit("exitArena", { userId, roomId });
       onExit();
     }
   };
@@ -147,6 +159,9 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
     setShowOpponentLeftModal(false);
     onExit();
   };
+
+  // Get username safely
+  const username = user?.name || user?.username || localStorage.getItem("userName") || "You";
 
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-900">
@@ -184,7 +199,7 @@ const Arena = ({ user, opponentName, opponentId, question, onExit }) => {
           </div>
           <div className="flex gap-6">
             <div className="bg-blue-900 px-4 py-2 rounded-lg border-2 border-blue-500">
-              <p className="text-sm text-gray-300">👤 You: <span className="font-semibold text-white">{user.username}</span></p>
+              <p className="text-sm text-gray-300">👤 You: <span className="font-semibold text-white">{username}</span></p>
               <p className="text-xs font-semibold text-blue-400">
                 {status === "completed" ? "✅ Completed!" : "⏳ Solving..."}
               </p>

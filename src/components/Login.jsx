@@ -10,7 +10,7 @@ const Login = ({ onClose, setToken, setUser }) => {
     try {
       const googleToken = credentialResponse.credential;
 
-      // Send Google token → backend
+      // Send Google token to backend
       const res = await axios.post(`${API_BASE}/auth/google`, {
         token: googleToken,
       });
@@ -21,29 +21,36 @@ const Login = ({ onClose, setToken, setUser }) => {
 
       const { token, user } = res.data;
 
-      // ✅ SAVE AUTH PROPERLY
+      // ✅ SAVE ALL USER DATA TO LOCALSTORAGE
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("userId", user.id); // For socket.emit
+      localStorage.setItem("userName", user.name); // For socket.emit
+      localStorage.setItem("user", JSON.stringify(user)); // Complete user object
 
+      // Update state
       setToken(token);
       setUser(user);
 
       setMessage("Login successful!");
 
+      console.log("✅ User logged in:", {
+        userId: user.id,
+        userName: user.name,
+        email: user.email
+      });
+
       setTimeout(() => {
         if (onClose) onClose();
       }, 300);
-
     } catch (err) {
-      console.error(err);
-      setMessage("Google login failed");
+      console.error("Login error:", err);
+      setMessage("Google login failed. Please try again.");
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-8">
-
         <div className="flex justify-between items-center mb-6">
           <h1 className="font-bold text-2xl">Login</h1>
           <button
