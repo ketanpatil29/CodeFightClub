@@ -28,7 +28,7 @@ console.log('🔑 JWT_SECRET:', process.env.JWT_SECRET ? '✅ Loaded' : '❌ Mis
 // Import routes
 import authRoutes from "./authentication/routes/auth.js";
 import runCodeRouter from "./authentication/routes/runCode.js";
-import aiQuestionsRouter from "./aiQuestions.js";
+import aiQuestionsRouter from "./aiQuestions.js"; // This should have /submit-answer route
 
 // Import socket handler
 import initSocket from "./socketHandler.js";

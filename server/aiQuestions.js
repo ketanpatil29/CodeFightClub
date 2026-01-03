@@ -1,61 +1,120 @@
-const QUESTIONS = {
-  DSA: [
-    {
-      title: "Two Sum",
-      description:
-        "Given an array of integers and a target, return indices of two numbers that add up to the target.",
-      input: "nums = [2,7,11,15], target = 9",
-      output: "[0,1]",
-      examples: [
-        { input: "[2,7,11,15], 9", output: "[0,1]" },
-      ],
-      tests: [
-        { input: [[2,7,11,15], 9], output: [0,1] },
-      ],
-    },
-  ],
+import express from "express";
 
-  LOGIC: [
-    {
-      title: "Reverse String",
-      description: "Reverse the given string.",
-      input: `"hello"`,
-      output: `"olleh"`,
-      examples: [{ input: `"abc"`, output: `"cba"` }],
-      tests: [{ input: ["hello"], output: "olleh" }],
-    },
-  ],
+const router = express.Router();
 
-  ALGO: [
-    {
-      title: "Max Element",
-      description: "Find the maximum element in an array.",
-      input: "[1, 5, 3]",
-      output: "5",
-      examples: [{ input: "[1,5,3]", output: "5" }],
-      tests: [{ input: [[1,5,3]], output: 5 }],
-    },
-  ],
+// Test runner function
+function runTests(code, question) {
+  try {
+    // Extract the function from user's code
+    const functionMatch = code.match(/function\s+\w+\s*\([^)]*\)\s*{[\s\S]*}/);
+    
+    if (!functionMatch) {
+      return {
+        success: false,
+        error: "No valid function found in code",
+        passedCount: 0,
+        totalTests: question.tests?.length || 0,
+        results: [],
+      };
+    }
 
-  PROBLEM: [
-    {
-      title: "FizzBuzz",
-      description:
-        "Print numbers from 1 to n. For multiples of 3 print Fizz, for 5 print Buzz.",
-      input: "n = 5",
-      output: "[1,2,'Fizz',4,'Buzz']",
-      examples: [{ input: "5", output: "[1,2,'Fizz',4,'Buzz']" }],
-      tests: [{ input: [5], output: [1,2,"Fizz",4,"Buzz"] }],
-    },
-  ],
-};
+    const userFunction = functionMatch[0];
+    
+    // Create a safe evaluation context
+    const testResults = [];
+    let passedCount = 0;
 
-export default async function getAIQuestion(category) {
-  const list = QUESTIONS[category] || QUESTIONS.LOGIC;
-  const question = list[Math.floor(Math.random() * list.length)];
+    question.tests.forEach((test, index) => {
+      try {
+        // Create isolated function
+        const wrappedCode = `
+          ${userFunction}
+          const args = ${JSON.stringify(test.input)};
+          return solve(...args);
+        `;
 
-  return {
-    id: Date.now(),
-    ...question,
-  };
+        // Execute the function
+        const fn = new Function(wrappedCode);
+        const output = fn();
+
+        // Compare output with expected
+        const passed = JSON.stringify(output) === JSON.stringify(test.output);
+        
+        if (passed) passedCount++;
+
+        testResults.push({
+          testNumber: index + 1,
+          passed,
+          input: test.input,
+          expectedOutput: test.output,
+          output,
+        });
+      } catch (error) {
+        testResults.push({
+          testNumber: index + 1,
+          passed: false,
+          input: test.input,
+          expectedOutput: test.output,
+          output: null,
+          error: error.message,
+        });
+      }
+    });
+
+    return {
+      success: passedCount === question.tests.length,
+      passedCount,
+      totalTests: question.tests.length,
+      results: testResults,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      passedCount: 0,
+      totalTests: question.tests?.length || 0,
+      results: [],
+    };
+  }
 }
+
+// Submit answer endpoint
+router.post("/submit-answer", async (req, res) => {
+  try {
+    const { code, question } = req.body;
+
+    console.log("📝 Submit answer received");
+    console.log("Code length:", code?.length || 0);
+    console.log("Question:", question?.title);
+
+    if (!code || !question) {
+      return res.status(400).json({
+        success: false,
+        error: "Code and question are required",
+      });
+    }
+
+    if (!question.tests || question.tests.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Question has no test cases",
+      });
+    }
+
+    console.log("🧪 Running tests...");
+    const results = runTests(code, question);
+    
+    console.log(`✅ Tests completed: ${results.passedCount}/${results.totalTests} passed`);
+
+    return res.status(200).json(results);
+  } catch (error) {
+    console.error("❌ Submit answer error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to test code",
+      details: error.message,
+    });
+  }
+});
+
+export default router;

@@ -74,23 +74,39 @@ const Arena = ({ user, opponentName, opponentId, question, roomId, onExit }) => 
     if (isSubmitting || status === "completed" || gameOver) return;
     
     setIsSubmitting(true);
+    console.log("🚀 Submitting answer...");
+    console.log("Code:", code.substring(0, 100) + "...");
+    console.log("Question:", question.title);
+    console.log("API_BASE:", API_BASE);
 
     try {
+      const payload = { code, question };
+      console.log("📤 Sending to:", `${API_BASE}/ai/submit-answer`);
+      
       const res = await fetch(`${API_BASE}/ai/submit-answer`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, question }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
       
+      console.log("📥 Response status:", res.status);
+      
       if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
+        const errorText = await res.text();
+        console.error("❌ Server error response:", errorText);
+        throw new Error(`Server error: ${res.status} - ${errorText}`);
       }
 
       const contentType = res.headers.get("content-type");
+      console.log("📋 Content-Type:", contentType);
+      
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
         console.error("❌ Expected JSON but got:", text);
-        throw new Error("Server returned invalid response");
+        throw new Error("Server returned invalid response format");
       }
       
       const data = await res.json();
@@ -103,30 +119,39 @@ const Arena = ({ user, opponentName, opponentId, question, roomId, onExit }) => 
         // Get userId from localStorage or user object
         const userId = user?.id || localStorage.getItem("userId");
         
-        console.log("✅ Emitting submitAnswer:", { userId, roomId, success: true });
+        console.log("✅ All tests passed! Emitting submitAnswer:", { userId, roomId, success: true });
         
         // Emit to backend that you've completed
-        socket?.emit("submitAnswer", { 
-          userId, 
-          roomId,
-          success: true,
-        });
+        if (socket && socket.connected) {
+          socket.emit("submitAnswer", { 
+            userId, 
+            roomId,
+            success: true,
+          });
+        } else {
+          console.error("❌ Socket not connected, cannot emit submitAnswer");
+        }
         
         // Don't show alert here - wait for gameOver event
       } else {
         setStatus("solving");
-        alert(`${data.passedCount}/${data.totalTests} tests passed. Keep trying!`);
+        const message = `${data.passedCount}/${data.totalTests} tests passed. Keep trying!`;
+        console.log("⚠️", message);
+        alert(message);
       }
     } catch (err) {
       console.error("❌ Submission error:", err);
       setTestResults({
         success: false,
-        error: "Network error. Please try again.",
-        results: []
+        error: err.message || "Network error. Please try again.",
+        results: [],
+        passedCount: 0,
+        totalTests: question.tests?.length || 0,
       });
-      alert("Submission failed. Please try again.");
+      alert(`Submission failed: ${err.message}`);
     } finally {
       setIsSubmitting(false);
+      console.log("✅ Submission complete");
     }
   };
 
