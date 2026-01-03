@@ -108,7 +108,6 @@ mongoose.connect(process.env.MONGO_URI)
     process.exit(1);
   });
 
-// Error handling
 process.on('unhandledRejection', (err) => {
   console.error('❌ Unhandled Rejection:', err);
 });
