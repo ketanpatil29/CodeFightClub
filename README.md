@@ -1,44 +1,113 @@
+Welcome guys to my CodeFightClub Project, here's the breif information about this project and how you can contribute. Thanks.
+
 # ⚔️ CodeFightClub (CFC)
 
-Welcome to **CodeFightClub** — a coding battle arena where you fight with code 💻🧠  
-Pick a category → get matched with someone → solve the same coding question → fastest correct wins.  
-It's not just practice — it's WAR 🔥
+CodeFightClub is a competitive coding arena where developers battle each other in real time.
+Pick a category, get matched with an opponent from anywhere in the world, solve the same problem, and prove who’s faster and sharper.
 
----
+Yes, you got that right, this is is developer vs developer.
 
 ## 🧠 What is CFC?
+CodeFightClub is an online platform built for developers who want to compete, learn, and improve through real-time coding battles.
 
-CFC is an online competitive coding platform (just for fun or for serious grind):
-- Click `Enter Arena` to start a match
-- Choose your category (DSA, Problem Solving, Logic, Algorithms)
-- Get matched with another player
-- You both get the **same coding question**
-- Whoever solves it correctly **first**, wins 💪
+How it works:
 
----
+-> Authenticate yourself
 
-## 🛠️ Tech Stack
+-> Select a coding category (DSA, Problem Solving, Logic, Algorithms)
 
-Frontend:
-- ReactJS + TailwindCSS
-- Socket.IO (real-time matchmaking)
-- Vite (super fast)
+-> Enter matchmaking
 
-Backend:
-- Node.js + Express
-- Socket.IO server for real-time opponent matching
+-> Get matched with another developer in the same category
+
+-> Both players receive the same coding question
+
+-> Write and submit your solution
+
+-> The first correct solution wins 🏆
+
+Once a match ends:
+
+The winner is announced instantly &
+
+The opponent is notified
+
+You can either:
+
+- Continue solving for practice, or
+
+- Leave and start a new match
 
 ---
 
 ## ✨ Features (so far)
 
-- ⚡ Live matchmaking system  
-- 🧠 Coding category selection  
-- 💬 Real-time question delivery  
-- 👥 Opponent vs Opponent battle logic  
-- 🔐 (Coming Soon) User authentication  
-- 🏆 (Coming Soon) Live leaderboard  
-- 🎯 (Coming Soon) Easy, Medium, Hard level sorting
+Current Features
+
+⚡ Real-time opponent matchmaking
+
+🧠 Category-based question selection
+
+🔐 User authentication with google
+
+💬 Live arena updates using WebSockets
+
+🧑‍🤝‍🧑 Player vs Player battle logic
+
+🚪 Match cancellation before pairing
+
+
+Upcoming Features(would be best if you contribute)
+
+🔐 User profiles
+
+🏆 Global & category-based leaderboards
+
+🤖 AI-generated & adaptive coding questions
+
+🎯 Difficulty levels (Easy / Medium / Hard)
+
+🧩 More coding categories
+
+📊 Match history & performance stats
+
+---
+
+## 🛠️ Tech Stack
+
+Frontend
+
+- React.js
+
+- Tailwind CSS
+
+- Framer Motion (animations)
+
+- Vite (fast dev environment)
+
+- WebSockets (Socket.IO client)
+
+Backend
+
+- Node.js
+
+- Express.js
+
+- Socket.IO (real-time communication)
+
+- MongoDB (planned, for users & leaderboard)
+
+Architecture
+
+- MERN Stack
+
+- Real-time WebSocket-based matchmaking & gameplay
+
+---
+
+## Our Web Application is under production and you check that on this link
+
+https://codefightclub.vercel.app/
 
 ---
 
@@ -56,3 +125,8 @@ npm install
 
 # Start the dev server
 npm run dev
+
+```
+
+---
+
